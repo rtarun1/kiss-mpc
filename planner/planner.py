@@ -5,6 +5,18 @@ import numpy as np
 import copy
 
 
+def MX_horzcat(*args: ca.MX) -> ca.MX:
+    return ca.horzcat(*args)
+
+
+def SX_horzcat(*args: ca.SX) -> ca.SX:
+    return ca.horzcat(*args)
+
+
+def DM_horzcat(*args: ca.DM) -> ca.DM:
+    return ca.horzcat(*args)
+
+
 def MX_vertcat(*args: ca.MX) -> ca.MX:
     return ca.vertcat(*args)
 
@@ -184,7 +196,7 @@ class MotionPlanner:
         current_velocities = cast(
             ca.MX,
             self.symbolic_controls_matrix * ca.DM(self.agent.time_step)
-            + ca.horzcat(
+            + DM_horzcat(
                 DM_vertcat(
                     ca.DM(self.agent.linear_velocity),
                     ca.DM(self.agent.angular_velocity),
@@ -219,13 +231,10 @@ class MotionPlanner:
             self.symbolic_states_matrix[2, :-1]
             + (current_velocities[1, :] * ca.DM(self.agent.time_step)),
         )
-        return cast(
-            ca.MX,
-            ca.horzcat(
-                self.symbolic_states_matrix[:, 0]
-                - self.symbolic_terminal_states_vector[: self.num_states],
-                self.symbolic_states_matrix[:, 1:] - next_states_bounds,
-            ),
+        return MX_horzcat(
+            self.symbolic_states_matrix[:, 0]
+            - self.symbolic_terminal_states_vector[: self.num_states],
+            self.symbolic_states_matrix[:, 1:] - next_states_bounds,
         )
 
     @property
@@ -245,26 +254,23 @@ class MotionPlanner:
             ),
         )
 
-        obstacle_states_matrix_x = DM_vertcat(
+        obstacle_states_matrix_x = DM_horzcat(
             *[
                 ca.DM(obstacle.states_matrix[0, 1:])
                 for obstacle in self.agent.visible_obstacles
             ]
         )
-        obstacle_states_matrix_y = DM_vertcat(
+        obstacle_states_matrix_y = DM_horzcat(
             *[
                 ca.DM(obstacle.states_matrix[1, 1:])
                 for obstacle in self.agent.visible_obstacles
             ]
         )
-
         return cast(
             ca.MX,
             ca.sqrt(
-                (symbolic_states_matrix_x.reshape((-1, 1)) - obstacle_states_matrix_x)
-                ** 2
-                + (symbolic_states_matrix_y.reshape((-1, 1)) - obstacle_states_matrix_y)
-                ** 2
+                (symbolic_states_matrix_x - obstacle_states_matrix_x.T) ** 2
+                + (symbolic_states_matrix_y - obstacle_states_matrix_y.T) ** 2
             ),
         )
 
