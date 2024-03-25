@@ -61,6 +61,9 @@ class MotionPlanner:
         # Weight matrix for state error
         self.weight_matrix = ca.DM(ca.diagcat(Q_x := 100, Q_y := 100, Q_theta := 500))
 
+        # Obstacle cost weight
+        self.obstacle_cost_weight = 100
+
         # Matrix of states over the prediction horizon
         # (contains an extra column for the initial state)
         self.symbolic_states_matrix = create_symbolic_matrix(
@@ -239,39 +242,13 @@ class MotionPlanner:
 
     @property
     def symbolic_obstacle_constraints(self) -> ca.MX:
-        symbolic_states_matrix_x = cast(
-            ca.MX,
-            ca.repmat(
-                self.symbolic_states_matrix[0, 1:],
-                (len(self.agent.visible_obstacles), 1),
-            ),
-        )
-        symbolic_states_matrix_y = cast(
-            ca.MX,
-            ca.repmat(
-                self.symbolic_states_matrix[1, 1:],
-                (len(self.agent.visible_obstacles), 1),
-            ),
-        )
-
-        obstacle_states_matrix_x = DM_horzcat(
+        return MX_horzcat(
             *[
-                ca.DM(obstacle.states_matrix[0, 1:])
+                obstacle.calculate_symbolic_distance(
+                    symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
+                )
                 for obstacle in self.agent.visible_obstacles
             ]
-        )
-        obstacle_states_matrix_y = DM_horzcat(
-            *[
-                ca.DM(obstacle.states_matrix[1, 1:])
-                for obstacle in self.agent.visible_obstacles
-            ]
-        )
-        return cast(
-            ca.MX,
-            ca.sqrt(
-                (symbolic_states_matrix_x - obstacle_states_matrix_x.T) ** 2
-                + (symbolic_states_matrix_y - obstacle_states_matrix_y.T) ** 2
-            ),
         )
 
     @property

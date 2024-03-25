@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Tuple, Optional, List
 
-import casadi as ca
+from obstacles.obstacle import Obstacle
 
 
 class Agent:
@@ -11,9 +11,9 @@ class Agent:
         initial_state: Tuple,
         goal_state: Tuple,
         horizon: int = 50,
-        avoid_obstacles: bool = False,
         radius: float = 1.0,
         sensor_radius: float = 50.0,
+        avoid_obstacles: bool = False,
     ):
         assert horizon > 0, "Horizon must be greater than 0"
 
@@ -22,7 +22,7 @@ class Agent:
         self.sensor_radius = sensor_radius
 
         self.avoid_obstacles = avoid_obstacles
-        self.all_obstacles: List["Agent"] = []
+        self.all_obstacles: List[Obstacle] = []
 
         self.initial_state = np.array(initial_state)
         self.goal_state = np.array(goal_state)
@@ -46,12 +46,12 @@ class Agent:
         self.state: np.ndarray = self.states_matrix[:, 1]
 
     @property
-    def visible_obstacles(self):
+    def visible_obstacles(self) -> List[Obstacle]:
         return (
             [
                 obstacle
                 for obstacle in self.all_obstacles
-                if np.linalg.norm(self.state[:2] - obstacle.state[:2])
+                if obstacle.geometry.calculate_distance(self.state)
                 <= self.sensor_radius
             ]
             if self.avoid_obstacles

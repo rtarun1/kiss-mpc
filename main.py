@@ -7,6 +7,8 @@ import casadi as ca
 import matplotlib.pyplot as plt
 import copy
 import utils as utils
+from obstacles.obstacle import Obstacle
+from obstacles.geometry import Circle, Rectangle
 
 np.set_printoptions(suppress=True)
 
@@ -49,59 +51,62 @@ if __name__ == "__main__":
     agent1.linear_velocity = 5
     draw_list.append(agent1)
 
+    obs = Obstacle(2, Rectangle(3, 18, 0, 3, 4), horizon=30)
+    # obs = Obstacle(2, Circle(3, 18, 0, 3), horizon=30)
+
     # Initialize first obstacle
     # obs = Agent(2, [3, 18, np.deg2rad(90)], [3, 18 + 30, np.deg2rad(90)], 30)
-    obs = Agent(2, (-6, 5, np.deg2rad(90)), (30, 40, np.deg2rad(90)), horizon=30)
-    obs.linear_velocity_bounds = (0, 8)
-    obs.linear_velocity = 6
+    # obs = Agent(2, (-6, 5, np.deg2rad(90)), (30, 40, np.deg2rad(90)), horizon=30)
+    # obs.linear_velocity_bounds = (0, 8)
+    # obs.linear_velocity = 6
     draw_list.append(obs)
 
-    # Initialize new obstacle moving from goal position to agent's starting position
-    obs2 = Agent(3, (7, 20, np.deg2rad(90)), (3, 20, np.deg2rad(90)), horizon=30)
-    obs2.linear_velocity_bounds = (0, 8)
-    obs2.linear_velocity = 6
-    draw_list.append(obs2)
+    # # Initialize new obstacle moving from goal position to agent's starting position
+    # obs2 = Agent(3, (7, 20, np.deg2rad(90)), (3, 20, np.deg2rad(90)), horizon=30)
+    # obs2.linear_velocity_bounds = (0, 8)
+    # obs2.linear_velocity = 6
+    # draw_list.append(obs2)
 
-    # Initialize new obstacle moving from goal position to agent's starting position
-    obs3 = Agent(4, (9, 5, np.deg2rad(90)), (5, 18 + 20, np.deg2rad(90)), horizon=30)
-    obs3.linear_velocity_bounds = (0, 8)
-    obs3.linear_velocity = 6
-    draw_list.append(obs3)
+    # # Initialize new obstacle moving from goal position to agent's starting position
+    # obs3 = Agent(4, (9, 5, np.deg2rad(90)), (5, 18 + 20, np.deg2rad(90)), horizon=30)
+    # obs3.linear_velocity_bounds = (0, 8)
+    # obs3.linear_velocity = 6
+    # draw_list.append(obs3)
 
-    # Initialize new obstacle moving from goal position to agent's starting position
-    obs4 = Agent(5, (9, 15, np.deg2rad(90)), (5 + 7, 15, np.deg2rad(90)), horizon=30)
-    obs4.linear_velocity_bounds = (0, 8)
-    obs4.linear_velocity = 6
-    draw_list.append(obs4)
+    # # Initialize new obstacle moving from goal position to agent's starting position
+    # obs4 = Agent(5, (9, 15, np.deg2rad(90)), (5 + 7, 15, np.deg2rad(90)), horizon=30)
+    # obs4.linear_velocity_bounds = (0, 8)
+    # obs4.linear_velocity = 6
+    # draw_list.append(obs4)
 
-    # Initialize new obstacle moving from goal position to agent's starting position
-    obs5 = Agent(6, (-5, 20, np.deg2rad(90)), (9, 50, np.deg2rad(90)), horizon=30)
-    obs5.linear_velocity_bounds = (0, 7)
-    obs5.linear_velocity = 2
-    draw_list.append(obs5)
+    # # Initialize new obstacle moving from goal position to agent's starting position
+    # obs5 = Agent(6, (-5, 20, np.deg2rad(90)), (9, 50, np.deg2rad(90)), horizon=30)
+    # obs5.linear_velocity_bounds = (0, 7)
+    # obs5.linear_velocity = 2
+    # draw_list.append(obs5)
 
     agent1.all_obstacles.append(obs)
-    agent1.all_obstacles.append(obs2)
-    agent1.all_obstacles.append(obs3)
-    agent1.all_obstacles.append(obs4)
-    agent1.all_obstacles.append(obs5)
+    # agent1.all_obstacles.append(obs2)
+    # agent1.all_obstacles.append(obs3)
+    # agent1.all_obstacles.append(obs4)
+    # agent1.all_obstacles.append(obs5)
 
     agent1.avoid_obstacles = True
 
     controller1 = MotionPlanner(agent1)
-    obscontroller = MotionPlanner(obs)
-    obscontroller2 = MotionPlanner(obs2)
-    obscontroller3 = MotionPlanner(obs3)
-    obscontroller4 = MotionPlanner(obs4)
-    obscontroller5 = MotionPlanner(obs5)
+    # obscontroller = MotionPlanner(obs)
+    # obscontroller2 = MotionPlanner(obs2)
+    # obscontroller3 = MotionPlanner(obs3)
+    # obscontroller4 = MotionPlanner(obs4)
+    # obscontroller5 = MotionPlanner(obs5)
 
     # controller1.predict_controls()
     controller1.solve()
-    obscontroller.solve()
-    obscontroller2.solve()
-    # obscontroller3.solve()
-    # obscontroller4.solve()
-    obscontroller5.solve()
+    # obscontroller.solve()
+    # obscontroller2.solve()
+    # # obscontroller3.solve()
+    # # obscontroller4.solve()
+    # obscontroller5.solve()
 
     if rec_video:
         plt_sv_dir = plt_dir
@@ -116,11 +121,11 @@ if __name__ == "__main__":
 
         # Predict controls for all agents and obstacles
         controller1.solve()
-        obscontroller.solve()
-        obscontroller2.solve()
-        obscontroller3.solve()
-        obscontroller4.solve()
-        obscontroller5.solve()
+        # obscontroller.solve()
+        # obscontroller2.solve()
+        # obscontroller3.solve()
+        # obscontroller4.solve()
+        # obscontroller5.solve()
 
         print(time.time() - t1)
         print("#################")
@@ -128,20 +133,20 @@ if __name__ == "__main__":
         agent1.update_velocities()
         agent1.update_state()
 
-        obs.update_velocities()
-        obs.update_state()
+        # obs.update_velocities()
+        # obs.update_state()
 
-        obs2.update_velocities()
-        obs2.update_state()
+        # obs2.update_velocities()
+        # obs2.update_state()
 
-        obs3.update_velocities()
-        obs3.update_state()
+        # obs3.update_velocities()
+        # obs3.update_state()
 
-        obs4.update_velocities()
-        obs4.update_state()
+        # obs4.update_velocities()
+        # obs4.update_state()
 
-        obs5.update_velocities()
-        obs5.update_state()
+        # obs5.update_velocities()
+        # obs5.update_state()
 
         utils.draw(draw_list)
         # Commented out lane plotting

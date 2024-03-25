@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from agents.agent import Agent
+from obstacles.geometry import Circle, Rectangle
+from obstacles.obstacle import Obstacle
 from typing import List
 
 
@@ -32,6 +34,14 @@ def draw_circle(x, y, radius):
     return xunit, yunit
 
 
+def draw_rectangle(x, y, width, height):
+    xunit = np.arange(x - width / 2, x + width / 2, 0.01)
+    yunit = np.repeat(y - height / 2, len(xunit))
+    xunit = np.concatenate((xunit, np.arange(x + width / 2, x - width / 2, -0.01)))
+    yunit = np.concatenate((yunit, np.repeat(y + height / 2, len(xunit) - len(yunit))))
+    return xunit, yunit
+
+
 def draw_balls(balls):
     for i in range(len(balls)):
         center, radius = balls[i]
@@ -39,14 +49,13 @@ def draw_balls(balls):
         plt.plot(b_x, b_y, "blue", linewidth=1, alpha=0.1)
 
 
-def draw(agent_list: List[Agent]):
+def draw(agent_list: List[Agent] | List[Obstacle]):
     for i in range(len(agent_list)):
         a = agent_list[i]
         x = a.states_matrix
-        u = a.controls_matrix
-        g_state = a.goal_state
 
-        if a.id == 1:  # Main agent
+        if type(a) == Agent:  # Main agent
+            g_state = a.goal_state
             col = "red"  # Main agent color
             linewidth = 2  # Main agent line width
             plt.scatter(g_state[0], g_state[1], marker="x", color="r")
@@ -58,8 +67,20 @@ def draw(agent_list: List[Agent]):
             linewidth = 1  # Other agents line width
             plt.scatter(x[0, 1:], x[1, 1:], marker=".", color=col, s=2)
 
-        x_a, y_a = draw_circle(x[0, 1], x[1, 1], a.radius)
-        plt.plot(x_a, y_a, col, linewidth=linewidth)
+        if type(a) == Obstacle and type(a.geometry) == Circle:
+            x_a, y_a = draw_circle(x[0, 1], x[1, 1], a.geometry.radius)
+            plt.plot(x_a, y_a, col, linewidth=linewidth)
+        elif type(a) == Agent:
+            x_a, y_a = draw_circle(x[0, 1], x[1, 1], a.radius)
+            plt.plot(x_a, y_a, col, linewidth=linewidth)
+        elif type(a) == Obstacle and type(a.geometry) == Rectangle:
+            x_a, y_a = draw_rectangle(
+                x[0, 1], x[1, 1], a.geometry.width, a.geometry.height
+            )
+            plt.plot(x_a, y_a, col, linewidth=linewidth)
 
         plt.annotate(str(a.id), xy=(x[0, 1] + 0.1, x[1, 1] + 1.2), size=7)
-        plt.annotate(str(a.linear_velocity), xy=(x[0, 1] + 0.1, x[1, 1] - 0.5), size=6)
+        if type(a) == Agent:
+            plt.annotate(
+                str(a.linear_velocity), xy=(x[0, 1] + 0.1, x[1, 1] - 0.5), size=6
+            )
