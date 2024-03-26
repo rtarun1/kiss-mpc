@@ -1,8 +1,8 @@
 import casadi as ca
-from agents.agent import Agent
-from typing import cast, Callable, Any, List, Tuple, Optional
+from typing import cast, List, Tuple, Optional
 import numpy as np
-import copy
+
+from mpc.obstacles.base import Obstacle
 
 
 def MX_horzcat(*args: ca.MX) -> ca.MX:
@@ -40,8 +40,13 @@ def create_symbolic_matrix(name: str, size: Optional[Tuple[int, int]] = None) ->
 
 
 class MotionPlanner:
-    def __init__(self, agent: Agent):
-        self.agent = agent
+    def __init__(
+        self,
+        time_step: float,
+        horizon: int,
+    ):
+        self.time_step = time_step
+        self.horizon = horizon
 
         # States
         self.symbolic_states = SX_vertcat(
@@ -67,12 +72,12 @@ class MotionPlanner:
         # Matrix of states over the prediction horizon
         # (contains an extra column for the initial state)
         self.symbolic_states_matrix = create_symbolic_matrix(
-            "X", (self.num_states, self.agent.horizon + 1)
+            "X", (self.num_states, self.horizon + 1)
         )
 
         # Matrix of controls over the prediction horizon
         self.symbolic_controls_matrix = create_symbolic_matrix(
-            "U", (self.num_controls, self.agent.horizon)
+            "U", (self.num_controls, self.horizon)
         )
 
         # Initial state and Goal state vector
@@ -116,67 +121,80 @@ class MotionPlanner:
     # @property
     # def lane_cost(self, lane_bounds_x: ca.SX):
     #     cost = 0
-    #     for timestep in range(self.agent.horizon+1):
+    #     for timestep in range(self.horizon+1):
     #         state = self.symbolic_states_matrix[0, timestep]
     #         cost += (state - lane_bounds_x)**2
     #     return cost
 
-    @property
-    def lane_bounds(self) -> Tuple[ca.DM, ca.DM]:
+    def _get_lane_bounds(
+        self, left_right_lane_bounds: Tuple[float, float]
+    ) -> Tuple[ca.DM, ca.DM]:
         lane_lower_bounds = cast(
             ca.DM,
             ca.repmat(
                 DM_vertcat(
-                    self.agent.left_right_lane_bounds[0] + self.agent.radius,
+                    left_right_lane_bounds[0],
                     -ca.inf,
                     -ca.inf,
                 ),
-                (1, self.agent.horizon + 1),
+                (1, self.horizon + 1),
             ),
         )
         lane_upper_bounds = cast(
             ca.DM,
             ca.repmat(
                 DM_vertcat(
-                    self.agent.left_right_lane_bounds[1] - self.agent.radius,
+                    left_right_lane_bounds[1],
                     ca.inf,
                     ca.inf,
                 ),
-                (1, self.agent.horizon + 1),
+                (1, self.horizon + 1),
             ),
         )
 
         return lane_lower_bounds, lane_upper_bounds
 
-    @property
-    def control_bounds(self) -> Tuple[ca.DM, ca.DM]:
+    def _get_control_bounds(
+        self,
+        linear_acceleration_bounds: Tuple[float, float],
+        angular_acceleration_bounds: Tuple[float, float],
+    ) -> Tuple[ca.DM, ca.DM]:
         control_lower_bounds = cast(
             ca.DM,
             ca.repmat(
                 DM_vertcat(
-                    self.agent.linear_acceleration_bounds[0],
-                    self.agent.angular_acceleration_bounds[0],
+                    linear_acceleration_bounds[0],
+                    angular_acceleration_bounds[0],
                 ),
-                (1, self.agent.horizon),
+                (1, self.horizon),
             ),
         )
         control_upper_bounds = cast(
             ca.DM,
             ca.repmat(
                 DM_vertcat(
-                    self.agent.linear_acceleration_bounds[1],
-                    self.agent.angular_acceleration_bounds[1],
+                    linear_acceleration_bounds[1],
+                    angular_acceleration_bounds[1],
                 ),
-                (1, self.agent.horizon),
+                (1, self.horizon),
             ),
         )
 
         return control_lower_bounds, control_upper_bounds
 
-    @property
-    def optimization_variable_bounds(self) -> Tuple[ca.DM, ca.DM]:
-        lower_lane_bounds, upper_lane_bounds = self.lane_bounds
-        lower_control_bounds, upper_control_bounds = self.control_bounds
+    def _get_optimization_variable_bounds(
+        self,
+        left_right_lane_bounds: Tuple[float, float],
+        linear_acceleration_bounds: Tuple[float, float],
+        angular_acceleration_bounds: Tuple[float, float],
+    ) -> Tuple[ca.DM, ca.DM]:
+        lower_lane_bounds, upper_lane_bounds = self._get_lane_bounds(
+            left_right_lane_bounds
+        )
+        lower_control_bounds, upper_control_bounds = self._get_control_bounds(
+            linear_acceleration_bounds=linear_acceleration_bounds,
+            angular_acceleration_bounds=angular_acceleration_bounds,
+        )
 
         optimization_variable_lower_bounds = DM_vertcat(
             lower_lane_bounds.reshape((-1, 1)), lower_control_bounds.reshape((-1, 1))
@@ -187,30 +205,26 @@ class MotionPlanner:
 
         return optimization_variable_lower_bounds, optimization_variable_upper_bounds
 
-    @property
-    def state_constraints_bounds(self) -> Tuple[ca.DM, ca.DM]:
+    def _get_state_constraints_bounds(self) -> Tuple[ca.DM, ca.DM]:
         return (
-            cast(ca.DM, ca.DM.zeros((3, self.agent.horizon + 1))),
-            cast(ca.DM, ca.DM.zeros((3, self.agent.horizon + 1))),
+            cast(ca.DM, ca.DM.zeros((3, self.horizon + 1))),
+            cast(ca.DM, ca.DM.zeros((3, self.horizon + 1))),
         )
 
-    @property
-    def symbolic_states_constraints(self) -> ca.MX:
+    def _get_symbolic_states_constraints(
+        self, current_linear_velocity: float, current_angular_velocity: float
+    ) -> ca.MX:
         current_velocities = cast(
             ca.MX,
-            self.symbolic_controls_matrix * ca.DM(self.agent.time_step)
+            self.symbolic_controls_matrix * ca.DM(self.time_step)
             + DM_horzcat(
                 DM_vertcat(
-                    ca.DM(self.agent.linear_velocity),
-                    ca.DM(self.agent.angular_velocity),
+                    ca.DM(current_linear_velocity),
+                    ca.DM(current_angular_velocity),
                 ),
-                ca.MX.zeros((2, self.agent.horizon - 1)),
+                ca.MX.zeros((2, self.horizon - 1)),
             ),
         )
-        # current_velocities[:, 0] = current_velocities[:, 0] + DM_vertcat(
-        #     ca.DM(self.agent.linear_velocity),
-        #     ca.DM(self.agent.angular_velocity),
-        # )
         current_velocities = cast(
             ca.MX,
             ca.cumsum(
@@ -223,16 +237,16 @@ class MotionPlanner:
             + (
                 current_velocities[0, :]
                 * ca.cos(self.symbolic_states_matrix[2, :-1])
-                * ca.DM(self.agent.time_step)
+                * ca.DM(self.time_step)
             ),
             self.symbolic_states_matrix[1, :-1]
             + (
                 current_velocities[0, :]
                 * ca.sin(self.symbolic_states_matrix[2, :-1])
-                * ca.DM(self.agent.time_step)
+                * ca.DM(self.time_step)
             ),
             self.symbolic_states_matrix[2, :-1]
-            + (current_velocities[1, :] * ca.DM(self.agent.time_step)),
+            + (current_velocities[1, :] * ca.DM(self.time_step)),
         )
         return MX_horzcat(
             self.symbolic_states_matrix[:, 0]
@@ -240,43 +254,46 @@ class MotionPlanner:
             self.symbolic_states_matrix[:, 1:] - next_states_bounds,
         )
 
-    @property
-    def symbolic_obstacle_constraints(self) -> ca.MX:
+    def _get_symbolic_obstacle_constraints(
+        self, visible_obstacles: List[Obstacle]
+    ) -> ca.MX:
         return MX_horzcat(
             *[
-                obstacle.calculate_symbolic_distance(
+                obstacle.calculate_symbolic_matrix_distance(
                     symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
                 )
-                for obstacle in self.agent.visible_obstacles
+                for obstacle in visible_obstacles
             ]
         )
 
-    @property
-    def obstacle_constraints_bounds(self) -> Tuple[ca.DM, ca.DM]:
+    def _get_obstacle_constraints_bounds(
+        self, inflation_radius: float, num_obstacles: int
+    ) -> Tuple[ca.DM, ca.DM]:
         constraints_lower_bound = cast(
             ca.DM,
             ca.repmat(
-                ca.DM(2 * self.agent.radius + 0.5),
-                (1, self.agent.horizon * len(self.agent.visible_obstacles)),
+                ca.DM(inflation_radius),
+                (1, self.horizon * num_obstacles),
             ),
         )
         constraints_upper_bound = cast(
             ca.DM,
             ca.repmat(
                 ca.DM(ca.inf),
-                (1, self.agent.horizon * len(self.agent.visible_obstacles)),
+                (1, self.horizon * num_obstacles),
             ),
         )
         return constraints_lower_bound, constraints_upper_bound
 
-    @property
-    def symbolic_linear_velocity_constraints(self) -> ca.MX:
+    def _get_symbolic_linear_velocity_constraints(
+        self, current_linear_velocity: float
+    ) -> ca.MX:
         current_velocities = cast(
             ca.MX,
-            self.symbolic_controls_matrix[0, :] * ca.DM(self.agent.time_step)
+            self.symbolic_controls_matrix[0, :] * ca.DM(self.time_step)
             + ca.horzcat(
-                ca.DM(self.agent.linear_velocity),
-                ca.MX.zeros((1, self.agent.horizon - 1)),
+                ca.DM(current_linear_velocity),
+                ca.MX.zeros((1, self.horizon - 1)),
             ),
         )
         return cast(
@@ -287,31 +304,29 @@ class MotionPlanner:
             ),
         )
 
-    @property
-    def linear_velocity_constraints_bounds(self) -> Tuple[ca.DM, ca.DM]:
+    def _get_linear_velocity_constraints_bounds(
+        self, linear_velocity_bounds: Tuple[float, float]
+    ) -> Tuple[ca.DM, ca.DM]:
         constraints_lower_bound = cast(
             ca.DM,
-            ca.repmat(
-                ca.DM(self.agent.linear_velocity_bounds[0]), (1, self.agent.horizon)
-            ),
+            ca.repmat(ca.DM(linear_velocity_bounds[0]), (1, self.horizon)),
         )
         constraints_upper_bound = cast(
             ca.DM,
-            ca.repmat(
-                ca.DM(self.agent.linear_velocity_bounds[1]), (1, self.agent.horizon)
-            ),
+            ca.repmat(ca.DM(linear_velocity_bounds[1]), (1, self.horizon)),
         )
 
         return constraints_lower_bound, constraints_upper_bound
 
-    @property
-    def symbolic_angular_velocity_constraints(self) -> ca.MX:
+    def _get_symbolic_angular_velocity_constraints(
+        self, current_angular_velocity: float
+    ) -> ca.MX:
         current_velocities = cast(
             ca.MX,
-            self.symbolic_controls_matrix[1, :] * ca.DM(self.agent.time_step)
+            self.symbolic_controls_matrix[1, :] * ca.DM(self.time_step)
             + ca.horzcat(
-                ca.DM(self.agent.angular_velocity),
-                ca.MX.zeros((1, self.agent.horizon - 1)),
+                ca.DM(current_angular_velocity),
+                ca.MX.zeros((1, self.horizon - 1)),
             ),
         )
         return cast(
@@ -322,84 +337,124 @@ class MotionPlanner:
             ),
         )
 
-    @property
-    def angular_velocity_constraints_bounds(self) -> Tuple[ca.DM, ca.DM]:
+    def _get_angular_velocity_constraints_bounds(
+        self, angular_velocity_bounds: Tuple[float, float]
+    ) -> Tuple[ca.DM, ca.DM]:
         constraints_lower_bound = cast(
             ca.DM,
-            ca.repmat(
-                ca.DM(self.agent.angular_velocity_bounds[0]), (1, self.agent.horizon)
-            ),
+            ca.repmat(ca.DM(angular_velocity_bounds[0]), (1, self.horizon)),
         )
         constraints_upper_bound = cast(
             ca.DM,
-            ca.repmat(
-                ca.DM(self.agent.angular_velocity_bounds[1]), (1, self.agent.horizon)
-            ),
+            ca.repmat(ca.DM(angular_velocity_bounds[1]), (1, self.horizon)),
         )
 
         return constraints_lower_bound, constraints_upper_bound
 
-    @property
-    def symbolic_constraints(self) -> ca.MX:
-        return MX_vertcat(
-            self.symbolic_states_constraints.reshape((-1, 1)),
-            self.symbolic_linear_velocity_constraints.reshape((-1, 1)),
-            self.symbolic_angular_velocity_constraints.reshape((-1, 1)),
-            self.symbolic_obstacle_constraints.reshape((-1, 1)),
+    def _get_symbolic_constraints(
+        self,
+        current_linear_velocity: float,
+        current_angular_velocity: float,
+        visible_obstacles: Optional[List[Obstacle]] = None,
+    ) -> ca.MX:
+        symbolic_constraints = MX_vertcat(
+            self._get_symbolic_states_constraints(
+                current_linear_velocity=current_linear_velocity,
+                current_angular_velocity=current_angular_velocity,
+            ).reshape((-1, 1)),
+            self._get_symbolic_linear_velocity_constraints(
+                current_linear_velocity
+            ).reshape((-1, 1)),
+            self._get_symbolic_angular_velocity_constraints(
+                current_angular_velocity
+            ).reshape((-1, 1)),
         )
 
-    @property
-    def constraints_bounds(self) -> Tuple[ca.DM, ca.DM]:
+        if visible_obstacles is not None and len(visible_obstacles) > 0:
+            symbolic_constraints = MX_vertcat(
+                symbolic_constraints,
+                self._get_symbolic_obstacle_constraints(visible_obstacles).reshape(
+                    (-1, 1)
+                ),
+            )
+
+        return symbolic_constraints
+
+    def _get_constraints_bounds(
+        self,
+        linear_velocity_bounds: Tuple[float, float],
+        angular_velocity_bounds: Tuple[float, float],
+        inflation_radius: float = 0,
+        num_obstacles: int = 0,
+    ) -> Tuple[ca.DM, ca.DM]:
         (
             state_constraints_lower_bound,
             state_constraints_upper_bound,
-        ) = self.state_constraints_bounds
+        ) = self._get_state_constraints_bounds()
 
         (
             linear_velocity_constraints_lower_bound,
             linear_velocity_constraints_upper_bound,
-        ) = self.linear_velocity_constraints_bounds
+        ) = self._get_linear_velocity_constraints_bounds(linear_velocity_bounds)
 
         (
             angular_velocity_constraints_lower_bound,
             angular_velocity_constraints_upper_bound,
-        ) = self.angular_velocity_constraints_bounds
-
-        (
-            obstacle_constraints_lower_bound,
-            obstacle_constraints_upper_bound,
-        ) = self.obstacle_constraints_bounds
+        ) = self._get_angular_velocity_constraints_bounds(angular_velocity_bounds)
 
         constraints_lower_bound = DM_vertcat(
             state_constraints_lower_bound.reshape((-1, 1)),
             linear_velocity_constraints_lower_bound.reshape((-1, 1)),
             angular_velocity_constraints_lower_bound.reshape((-1, 1)),
-            obstacle_constraints_lower_bound.reshape((-1, 1)),
         )
         constraints_upper_bound = DM_vertcat(
             state_constraints_upper_bound.reshape((-1, 1)),
             linear_velocity_constraints_upper_bound.reshape((-1, 1)),
             angular_velocity_constraints_upper_bound.reshape((-1, 1)),
-            obstacle_constraints_upper_bound.reshape((-1, 1)),
         )
+
+        if num_obstacles > 0:
+            (
+                obstacle_constraints_lower_bound,
+                obstacle_constraints_upper_bound,
+            ) = self._get_obstacle_constraints_bounds(
+                inflation_radius=inflation_radius, num_obstacles=num_obstacles
+            )
+            constraints_lower_bound = DM_vertcat(
+                constraints_lower_bound,
+                obstacle_constraints_lower_bound.reshape((-1, 1)),
+            )
+            constraints_upper_bound = DM_vertcat(
+                constraints_upper_bound,
+                obstacle_constraints_upper_bound.reshape((-1, 1)),
+            )
 
         return constraints_lower_bound, constraints_upper_bound
 
-    def solve(self):
-        (
-            constraints_lower_bounds,
-            constraints_upper_bounds,
-        ) = self.constraints_bounds
-
-        (
-            optimization_variable_lower_bounds,
-            optimization_variable_upper_bounds,
-        ) = self.optimization_variable_bounds
-
+    def solve(
+        self,
+        current_state: np.ndarray,
+        current_linear_velocity: float,
+        current_angular_velocity: float,
+        goal_state: np.ndarray,
+        states_matrix: np.ndarray,
+        controls_matrix: np.ndarray,
+        left_right_lane_bounds: Tuple[float, float],
+        linear_velocity_bounds: Tuple[float, float],
+        angular_velocity_bounds: Tuple[float, float],
+        linear_acceleration_bounds: Tuple[float, float],
+        angular_acceleration_bounds: Tuple[float, float],
+        inflation_radius: Optional[float] = None,
+        obstacles: Optional[List[Obstacle]] = None,
+    ):
         non_linear_program = {
             "x": self.symbolic_optimization_variables,
             "f": self.symbolic_costs,
-            "g": self.symbolic_constraints,
+            "g": self._get_symbolic_constraints(
+                current_linear_velocity=current_linear_velocity,
+                current_angular_velocity=current_angular_velocity,
+                visible_obstacles=obstacles,
+            ),
             "p": self.symbolic_terminal_states_vector,
         }
 
@@ -415,37 +470,57 @@ class MotionPlanner:
 
         solver = ca.nlpsol("solver", "ipopt", non_linear_program, solver_options)
 
+        (
+            constraints_lower_bounds,
+            constraints_upper_bounds,
+        ) = self._get_constraints_bounds(
+            linear_velocity_bounds=linear_velocity_bounds,
+            angular_velocity_bounds=angular_velocity_bounds,
+            inflation_radius=inflation_radius if inflation_radius is not None else 0,
+            num_obstacles=len(obstacles) if obstacles is not None else 0,
+        )
+
+        (
+            optimization_variable_lower_bounds,
+            optimization_variable_upper_bounds,
+        ) = self._get_optimization_variable_bounds(
+            left_right_lane_bounds=left_right_lane_bounds,
+            linear_acceleration_bounds=linear_acceleration_bounds,
+            angular_acceleration_bounds=angular_acceleration_bounds,
+        )
+
         solution = solver(
             x0=DM_vertcat(
                 ca.reshape(
-                    ca.DM(self.agent.states_matrix),
-                    (self.num_states * (self.agent.horizon + 1), 1),
+                    ca.DM(states_matrix),
+                    (self.num_states * (self.horizon + 1), 1),
                 ),
                 ca.reshape(
-                    ca.DM(self.agent.controls_matrix),
-                    (self.num_controls * self.agent.horizon, 1),
+                    ca.DM(controls_matrix),
+                    (self.num_controls * self.horizon, 1),
                 ),
             ),
             lbx=optimization_variable_lower_bounds,
             ubx=optimization_variable_upper_bounds,
             lbg=constraints_lower_bounds,
             ubg=constraints_upper_bounds,
-            p=DM_vertcat(ca.DM(self.agent.state), ca.DM(self.agent.goal_state)),
+            p=DM_vertcat(ca.DM(current_state), ca.DM(goal_state)),
         )
-
         updated_states_matrix = cast(
             ca.DM,
             ca.reshape(
-                solution["x"][: self.num_states * (self.agent.horizon + 1)],
-                (self.num_states, self.agent.horizon + 1),
+                solution["x"][: self.num_states * (self.horizon + 1)],
+                (self.num_states, self.horizon + 1),
             ),
         )
         updated_controls_matrix = cast(
             ca.DM,
             ca.reshape(
-                solution["x"][self.num_states * (self.agent.horizon + 1) :],
-                (self.num_controls, self.agent.horizon),
+                solution["x"][self.num_states * (self.horizon + 1) :],
+                (self.num_controls, self.horizon),
             ),
         )
-        self.agent.states_matrix = np.array(updated_states_matrix.full())
-        self.agent.controls_matrix = np.array(updated_controls_matrix.full())
+
+        return np.array(updated_states_matrix.full()), np.array(
+            updated_controls_matrix.full()
+        )

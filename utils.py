@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from agents.agent import Agent
-from obstacles.geometry import Circle, Rectangle
+from agents.base import Agent
+from geometries.geometry import Circle, Rectangle
 from obstacles.obstacle import Obstacle
 from typing import List
 
