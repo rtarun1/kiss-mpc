@@ -1,7 +1,7 @@
-from mpc.environments import Environment
-from mpc.agents.ego import EgoAgent
-from mpc.obstacles.obstacle import StaticObstacle, DynamicObstacle
-from mpc.geometries import Circle, Rectangle, Ellipsoid
+from mpc.agent import EgoAgent
+from mpc.environment import Environment
+from mpc.geometry import Circle, Rectangle
+from mpc.obstacle import DynamicObstacle, StaticObstacle
 
 agent1 = EgoAgent(
     id=1,
@@ -22,14 +22,12 @@ dynamic_obstacle = DynamicObstacle(
     id=3,
     geometry=Circle(radius=1),
     position=(-6, 5),
-    goal_position=(30, 40),
-    horizon=20,
 )
 
 environment = Environment(
     agent=agent1,
-    static_obstacles=[static_obstacle],
-    dynamic_obstacles=[],
+    static_obstacles=[],
+    dynamic_obstacles=[dynamic_obstacle],
 )
 environment.loop()
 

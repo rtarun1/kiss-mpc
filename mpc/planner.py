@@ -2,7 +2,7 @@ import casadi as ca
 from typing import cast, List, Tuple, Optional
 import numpy as np
 
-from mpc.obstacles.base import Obstacle
+from mpc.obstacle import Obstacle
 
 
 def MX_horzcat(*args: ca.MX) -> ca.MX:
@@ -50,21 +50,21 @@ class MotionPlanner:
 
         # States
         self.symbolic_states = SX_vertcat(
-            position_x := create_symbolic_scalar("x"),
-            position_y := create_symbolic_scalar("y"),
-            heading := create_symbolic_scalar("theta"),
+            create_symbolic_scalar("x"),
+            create_symbolic_scalar("y"),
+            create_symbolic_scalar("theta"),
         )
         self.num_states = cast(int, self.symbolic_states.numel())
 
         # Controls
         self.symbolic_controls = SX_vertcat(
-            linear_acceleration := create_symbolic_scalar("a"),
-            angular_acceleration := create_symbolic_scalar("alpha"),
+            create_symbolic_scalar("a"),
+            create_symbolic_scalar("alpha"),
         )
         self.num_controls = cast(int, self.symbolic_controls.numel())
 
-        # Weight matrix for state error
-        self.weight_matrix = ca.DM(ca.diagcat(Q_x := 100, Q_y := 100, Q_theta := 500))
+        # Weight matrix for goal cost
+        self.weight_matrix = ca.DM(ca.diagcat(100, 100, 500))
 
         # Obstacle cost weight
         self.obstacle_cost_weight = 100

@@ -1,8 +1,10 @@
 from typing import List
 
+import numpy as np
 from matplotlib import pyplot as plt
-from mpc.agents.ego import EgoAgent
-from mpc.obstacles.obstacle import DynamicObstacle, StaticObstacle
+
+from mpc.agent import EgoAgent
+from mpc.obstacle import DynamicObstacle, StaticObstacle
 
 
 class Plotter:
@@ -70,15 +72,31 @@ class Plotter:
             # s=1.5,
         )[0]
 
-        self.obstacle_plots = [
-            axes.plot(
-                obstacle.shadow_agent.states_matrix[0, 1:],
-                obstacle.shadow_agent.states_matrix[1, 1:],
-                marker=".",
-                color="green",
-            )[0]
+        # plot velocity arrows for dynamic obstacles
+        self.dynamic_obstacle_plots = [
+            axes.arrow(
+                obstacle.state[0],
+                obstacle.state[1],
+                obstacle.linear_velocity * np.cos(obstacle.state[2]),
+                obstacle.linear_velocity * np.sin(obstacle.state[2]),
+                head_width=0.2,
+                head_length=0.2,
+                fc="g",
+                ec="g",
+            )
             for obstacle in self.dynamic_obstacles
         ]
+
+        # self.obstacle_plots = [
+        #     axes.plot(
+        #         obstacle.shadow_agent.states_matrix[0, 1:],
+        #         obstacle.shadow_agent.states_matrix[1, 1:],
+        #         marker=".",
+        #         color="green",
+        #         # s=1.5,
+        #     )[0]
+        #     for obstacle in self.dynamic_obstacles
+        # ]
 
         goal_plot.set_data(self.agent.goal_state[0], self.agent.goal_state[1])
 
@@ -91,6 +109,7 @@ class Plotter:
     def recenter_plot(self):
         # Center plot to agent
         axes = plt.gca()
+        print(axes.get_children())
         axes.set_xlim(self.agent.state[0] - 10, self.agent.state[0] + 10)
         axes.set_ylim(self.agent.state[1] - 10, self.agent.state[1] + 10)
 
@@ -114,69 +133,16 @@ class Plotter:
             self.agent.states_matrix[0, 1:], self.agent.states_matrix[1, 1:]
         )
 
-        for obstacle_plot, obstacle in zip(self.obstacle_plots, self.dynamic_obstacles):
+        for obstacle_plot, obstacle in zip(
+            self.dynamic_obstacle_plots, self.dynamic_obstacles
+        ):
             obstacle_plot.set_data(
-                obstacle.shadow_agent.states_matrix[0, 1:],
-                obstacle.shadow_agent.states_matrix[1, 1:],
+                x=obstacle.state[0],
+                y=obstacle.state[1],
+                dx=obstacle.linear_velocity * np.cos(obstacle.state[2]),
+                dy=obstacle.linear_velocity * np.sin(obstacle.state[2]),
             )
 
     def close(self):
         plt.pause(2)
         plt.close()
-
-
-class Environment:
-    def __init__(
-        self,
-        agent: EgoAgent,
-        static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[DynamicObstacle],
-        plot=True,
-    ):
-        self.agent = agent
-        self.static_obstacles = static_obstacles
-        self.dynamic_obstacles = dynamic_obstacles
-        self.plot = plot
-
-    @property
-    def obstacles(self):
-        return self.static_obstacles + self.dynamic_obstacles
-
-    def step(self):
-        self.agent.step(
-            obstacles=[
-                obstacle
-                for obstacle in self.obstacles
-                if obstacle.calculate_distance(self.agent.state)
-                <= self.agent.sensor_radius
-            ]
-        )
-
-        for obstacle in self.dynamic_obstacles:
-            obstacle.step()
-
-    def reset(self):
-        self.agent.reset()
-
-        for obstacle in self.dynamic_obstacles:
-            obstacle.reset()
-
-    def loop(self, max_timesteps: int = 10000):
-        if self.plot:
-            plotter = Plotter(
-                agent=self.agent,
-                static_obstacles=self.static_obstacles,
-                dynamic_obstacles=self.dynamic_obstacles,
-            )
-
-        while (not self.agent.at_goal) and max_timesteps > 0:
-            self.step()
-
-            if self.plot:
-                plotter.update_plot()
-
-            max_timesteps -= 1
-            print(self.agent.state)
-
-        if self.plot:
-            plotter.close()
