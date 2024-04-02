@@ -17,16 +17,6 @@ class ROSInterface:
     """
 
     def __init__(self):
-        rospy.init_node("ros_mpc_interface")
-
-        rospy.Subscriber("/people", People, self.people_callback)
-        rospy.Subscriber("/waypoint", Pose, self.waypoint_callback)
-
-        # Get initial position of the robot from /odom topic
-        rospy.Subscriber("/odom", Pose, self.odom_callback)
-
-        self.velocity_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
-
         self.environment = ROSEnvironment(
             agent=EgoAgent(
                 id=0,
@@ -48,6 +38,14 @@ class ROSInterface:
             static_obstacles=[],
             dynamic_obstacles=[],
         )
+
+        rospy.init_node("ros_mpc_interface")
+
+        rospy.Subscriber("/people", People, self.people_callback)
+        rospy.Subscriber("/waypoint", Pose, self.waypoint_callback)
+        rospy.Subscriber("/odom", Pose, self.odom_callback)
+
+        self.velocity_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
 
         rospy.spin()
 
@@ -96,3 +94,8 @@ class ROSInterface:
         self.environment.agent.goal_state = np.array(
             [message.position.x, message.position.y, message.orientation.z]
         )
+
+
+if __name__ == "__main__":
+    ros_interface = ROSInterface()
+    ros_interface.run()
