@@ -40,8 +40,11 @@ class StaticObstacle(Obstacle):
         id: int,
         geometry: Geometry,
         position: Tuple[float, float],
+        orientation: float = np.pi / 2,
     ):
-        super().__init__(id=id, geometry=geometry, position=position)
+        super().__init__(
+            id=id, geometry=geometry, position=position, orientation=orientation
+        )
 
     def calculate_matrix_distance(self, states_matrix: np.ndarray):
         return np.stack(
@@ -71,10 +74,13 @@ class DynamicObstacle(Obstacle):
         id: int,
         geometry: Geometry,
         position: Tuple[float, float],
+        orientation: float = np.pi / 2,
         linear_velocity: float = -0.1,
         angular_velocity: float = 0,
     ):
-        super().__init__(id=id, geometry=geometry, position=position, orientation=-90)
+        super().__init__(
+            id=id, geometry=geometry, position=position, orientation=orientation
+        )
         self.linear_velocity = linear_velocity
         self.angular_velocity = angular_velocity
         self.initial_state = self.state

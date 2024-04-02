@@ -21,7 +21,6 @@ class Agent(ABC):
         initial_angular_velocity: float = 0,
         horizon: int = 50,
         geometry: Circle = Circle(1),
-        sensor_radius: float = 50.0,
         avoid_obstacles: bool = True,
         linear_velocity_bounds: Tuple[float, float] = (0, 12),
         angular_velocity_bounds: Tuple[float, float] = (-np.pi / 4, np.pi / 4),
@@ -33,7 +32,6 @@ class Agent(ABC):
 
         self.id = id
         self.geometry = geometry
-        self.sensor_radius = sensor_radius
 
         self.avoid_obstacles = avoid_obstacles
 
@@ -78,11 +76,12 @@ class Agent(ABC):
     def at_goal(self):
         return self.geometry.calculate_distance(self.state, self.goal_state) - 1 <= 0
 
-    def reset(self):
+    def reset(self, matrices_only: bool = False):
         self.states_matrix = np.tile(self.initial_state, (self.horizon + 1, 1)).T
         self.controls_matrix = np.zeros((2, self.horizon))
-        self.linear_velocity = self.initial_linear_velocity
-        self.angular_velocity = self.initial_angular_velocity
+        if not matrices_only:
+            self.linear_velocity = self.initial_linear_velocity
+            self.angular_velocity = self.initial_angular_velocity
 
 
 class ShadowAgent(Agent):
@@ -140,6 +139,7 @@ class EgoAgent(Agent):
         initial_linear_velocity: float = 0,
         initial_angular_velocity: float = 0,
         horizon: int = 50,
+        geometry: Circle = Circle(1),
         sensor_radius: float = 50.0,
         linear_velocity_bounds: Tuple[float, float] = (0, 12),
         angular_velocity_bounds: Tuple[float, float] = (-np.pi / 4, np.pi / 4),
@@ -158,6 +158,7 @@ class EgoAgent(Agent):
             initial_angular_velocity=initial_angular_velocity,
             horizon=horizon,
             sensor_radius=sensor_radius,
+            geometry=geometry,
             avoid_obstacles=True,
             linear_velocity_bounds=linear_velocity_bounds,
             angular_velocity_bounds=angular_velocity_bounds,

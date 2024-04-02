@@ -7,7 +7,6 @@ from mpc.agent import EgoAgent
 from mpc.obstacle import DynamicObstacle, StaticObstacle
 from mpc.plotter import Plotter
 
-
 class Environment:
     def __init__(
         self,

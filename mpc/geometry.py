@@ -25,30 +25,6 @@ class Geometry(ABC):
         raise NotImplementedError
 
 
-class Circle(Geometry):
-    def __init__(self, radius: float):
-        super().__init__()
-        self.radius = radius
-        self.patch: mpatches.Circle = mpatches.Circle(
-            (0, 0), radius, fill=False, color="black", linestyle="--"
-        )
-
-    def calculate_distance(self, distance_to: np.ndarray, state: np.ndarray) -> float:
-        return np.linalg.norm(distance_to[:2] - state[:2]) - self.radius
-
-    def calculate_symbolic_distance(
-        self, distance_to: ca.MX, state: np.ndarray
-    ) -> ca.MX:
-        return (
-            ca.sqrt((distance_to[0] - state[0]) ** 2 + (distance_to[1] - state[1]) ** 2)
-            - self.radius
-        )
-
-    def update_patch(self, state: np.ndarray):
-        # Plot the circle
-        self.patch.set_center((state[0], state[1]))
-
-
 class Rectangle(Geometry):
     def __init__(self, width: float, height: float):
         super().__init__()
@@ -85,6 +61,34 @@ class Rectangle(Geometry):
     def update_patch(self, state: np.ndarray):
         # Plot the rectangle
         self.patch.set_xy((state[0] - self.width / 2, state[1] - self.height / 2))
+
+
+class Circle(Geometry):
+    def __init__(self, radius: float):
+        super().__init__()
+        self.radius = radius
+        self.patch: mpatches.Circle = mpatches.Circle(
+            (0, 0), radius, fill=False, color="black", linestyle="--"
+        )
+
+    def from_rectangle(rectangle: Rectangle):
+        # Returns a circle that inscribes the rectangle
+        return Circle(np.sqrt(rectangle.width**2 + rectangle.height**2) / 2)
+
+    def calculate_distance(self, distance_to: np.ndarray, state: np.ndarray) -> float:
+        return np.linalg.norm(distance_to[:2] - state[:2]) - self.radius
+
+    def calculate_symbolic_distance(
+        self, distance_to: ca.MX, state: np.ndarray
+    ) -> ca.MX:
+        return (
+            ca.sqrt((distance_to[0] - state[0]) ** 2 + (distance_to[1] - state[1]) ** 2)
+            - self.radius
+        )
+
+    def update_patch(self, state: np.ndarray):
+        # Plot the circle
+        self.patch.set_center((state[0], state[1]))
 
 
 class Ellipsoid(Geometry):
