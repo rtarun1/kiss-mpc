@@ -71,29 +71,15 @@ class DynamicObstacle(Obstacle):
         id: int,
         geometry: Geometry,
         position: Tuple[float, float],
-        initial_linear_velocity: float = 0,
-        initial_angular_velocity: float = -np.pi,
+        linear_velocity: float = -0.1,
+        angular_velocity: float = 0,
     ):
-        super().__init__(id=id, geometry=geometry, position=position)
-        self.linear_velocity = initial_linear_velocity
-        self.angular_velocity = initial_angular_velocity
+        super().__init__(id=id, geometry=geometry, position=position, orientation=-90)
+        self.linear_velocity = linear_velocity
+        self.angular_velocity = angular_velocity
         self.initial_state = self.state
-        self.linear_velocity_bounds = (-4, 0)
-        self.angular_velocity_bounds = (0, 0)
-
-    def _perturb_velocity(self):
-        # Modify velocity randomly within bounds
-        self.linear_velocity = np.clip(
-            self.linear_velocity + np.random.uniform(-0.1, 0.1),
-            *self.linear_velocity_bounds,
-        )
-        self.angular_velocity = np.clip(
-            self.angular_velocity + np.random.uniform(-0.1, 0.1),
-            *self.angular_velocity_bounds,
-        )
 
     def _predict_state(self, state: np.ndarray):
-        self._perturb_velocity()
         return np.array(
             [
                 state[0] + self.linear_velocity * np.cos(np.deg2rad(state[2])),

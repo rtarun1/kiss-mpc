@@ -1,5 +1,6 @@
+from typing import List, Optional, Tuple, cast
+
 import casadi as ca
-from typing import cast, List, Tuple, Optional
 import numpy as np
 
 from mpc.obstacle import Obstacle
@@ -64,10 +65,10 @@ class MotionPlanner:
         self.num_controls = cast(int, self.symbolic_controls.numel())
 
         # Weight matrix for goal cost
-        self.weight_matrix = ca.DM(ca.diagcat(100, 100, 500))
+        self.weight_matrix = ca.DM(ca.diagcat(200, 200, 500))
 
         # Obstacle cost weight
-        self.obstacle_cost_weight = 100
+        # self.obstacle_cost_weight = ca.DM(10000)
 
         # Matrix of states over the prediction horizon
         # (contains an extra column for the initial state)
@@ -91,8 +92,7 @@ class MotionPlanner:
             self.symbolic_controls_matrix.reshape((-1, 1)),
         )
 
-    @property
-    def symbolic_goal_cost(self) -> ca.MX:
+    def _get_symbolic_goal_cost(self) -> ca.MX:
         error = cast(
             ca.MX,
             self.symbolic_states_matrix[:, 1:-1]
@@ -104,8 +104,7 @@ class MotionPlanner:
             ca.sum2(ca.sum1(cost)),
         )
 
-    @property
-    def symbolic_angular_acceleration_cost(self) -> ca.SX:
+    def _get_symbolic_angular_acceleration_cost(self) -> ca.MX:
         squared_angular_acceleration = cast(
             ca.MX, self.symbolic_controls_matrix[1, :] ** 2
         )
@@ -114,9 +113,38 @@ class MotionPlanner:
             ca.sum2(ca.sum1(squared_angular_acceleration)),
         )
 
-    @property
-    def symbolic_costs(self) -> ca.MX:
-        return self.symbolic_goal_cost + self.symbolic_angular_acceleration_cost
+    # def _get_symbolic_obstacle_cost(
+    #     self, visible_obstacles: List[Obstacle], inflation_radius: float
+    # ) -> ca.MX:
+    #     # Calculate cost as proportional to the distance within the inflation radius of each obstacle
+    #     distance_from_obstacle = MX_horzcat(
+    #         *[
+    #             obstacle.calculate_symbolic_matrix_distance(
+    #                 symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
+    #             )
+    #             for obstacle in visible_obstacles
+    #         ]
+    #     )
+
+    #     # Utilize self.obstacle_cost_weight to scale the cost
+    #     scaled_cost = ca.sum1(
+    #         ca.sum2(
+    #             self.obstacle_cost_weight
+    #             * ca.fmax(0, inflation_radius - distance_from_obstacle)
+    #         )
+    #     )
+    #     return scaled_cost
+
+    def _get_symbolic_costs(
+        self,
+        # visible_obstacles: List[Obstacle],
+        # inflation_radius: float,
+    ) -> ca.MX:
+        return (
+            self._get_symbolic_goal_cost()
+            + self._get_symbolic_angular_acceleration_cost()
+            # + self._get_symbolic_obstacle_cost(visible_obstacles, inflation_radius)
+        )
 
     # @property
     # def lane_cost(self, lane_bounds_x: ca.SX):
@@ -355,7 +383,7 @@ class MotionPlanner:
         self,
         current_linear_velocity: float,
         current_angular_velocity: float,
-        visible_obstacles: Optional[List[Obstacle]] = None,
+        visible_obstacles: List[Obstacle],
     ) -> ca.MX:
         symbolic_constraints = MX_vertcat(
             self._get_symbolic_states_constraints(
@@ -370,7 +398,7 @@ class MotionPlanner:
             ).reshape((-1, 1)),
         )
 
-        if visible_obstacles is not None and len(visible_obstacles) > 0:
+        if len(visible_obstacles) > 0:
             symbolic_constraints = MX_vertcat(
                 symbolic_constraints,
                 self._get_symbolic_obstacle_constraints(visible_obstacles).reshape(
@@ -449,11 +477,16 @@ class MotionPlanner:
     ):
         non_linear_program = {
             "x": self.symbolic_optimization_variables,
-            "f": self.symbolic_costs,
+            "f": self._get_symbolic_costs(
+                # visible_obstacles=(obstacles if obstacles is not None else []),
+                # inflation_radius=(
+                #     inflation_radius if inflation_radius is not None else 0
+                # ),
+            ),
             "g": self._get_symbolic_constraints(
                 current_linear_velocity=current_linear_velocity,
                 current_angular_velocity=current_angular_velocity,
-                visible_obstacles=obstacles,
+                visible_obstacles=(obstacles if obstacles is not None else []),
             ),
             "p": self.symbolic_terminal_states_vector,
         }
@@ -476,8 +509,8 @@ class MotionPlanner:
         ) = self._get_constraints_bounds(
             linear_velocity_bounds=linear_velocity_bounds,
             angular_velocity_bounds=angular_velocity_bounds,
-            inflation_radius=inflation_radius if inflation_radius is not None else 0,
-            num_obstacles=len(obstacles) if obstacles is not None else 0,
+            inflation_radius=(inflation_radius if inflation_radius is not None else 0),
+            num_obstacles=(len(obstacles) if obstacles is not None else 0),
         )
 
         (

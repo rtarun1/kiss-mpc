@@ -26,7 +26,7 @@ class Agent(ABC):
         linear_velocity_bounds: Tuple[float, float] = (0, 12),
         angular_velocity_bounds: Tuple[float, float] = (-np.pi / 4, np.pi / 4),
         linear_acceleration_bounds: Tuple[float, float] = (-50, 50),
-        angular_acceleration_bounds: Tuple[float, float] = (-50, 50),
+        angular_acceleration_bounds: Tuple[float, float] = (-np.pi, np.pi),
         left_right_lane_bounds: Tuple[float, float] = (-1000.5, 1000.5),
     ):
         assert horizon > 0, "Horizon must be greater than 0"
@@ -76,7 +76,7 @@ class Agent(ABC):
 
     @property
     def at_goal(self):
-        return self.geometry.calculate_distance(self.state, self.goal_state) <= 0
+        return self.geometry.calculate_distance(self.state, self.goal_state) - 1 <= 0
 
     def reset(self):
         self.states_matrix = np.tile(self.initial_state, (self.horizon + 1, 1)).T
