@@ -20,6 +20,7 @@ class Agent(ABC):
         initial_linear_velocity: float = 0,
         initial_angular_velocity: float = 0,
         horizon: int = 50,
+        sensor_radius: float = 30,
         geometry: Circle = Circle(1),
         avoid_obstacles: bool = True,
         linear_velocity_bounds: Tuple[float, float] = (0, 12),
@@ -32,6 +33,7 @@ class Agent(ABC):
 
         self.id = id
         self.geometry = geometry
+        self.sensor_radius = sensor_radius
 
         self.avoid_obstacles = avoid_obstacles
 
@@ -105,7 +107,6 @@ class ShadowAgent(Agent):
             initial_linear_velocity=initial_linear_velocity,
             initial_angular_velocity=initial_angular_velocity,
             horizon=horizon,
-            sensor_radius=0,
             avoid_obstacles=False,
         )
 
@@ -140,7 +141,6 @@ class EgoAgent(Agent):
         initial_angular_velocity: float = 0,
         horizon: int = 50,
         geometry: Circle = Circle(1),
-        sensor_radius: float = 50.0,
         linear_velocity_bounds: Tuple[float, float] = (0, 12),
         angular_velocity_bounds: Tuple[float, float] = (-np.pi / 4, np.pi / 4),
         linear_acceleration_bounds: Tuple[float, float] = (-50, 50),
@@ -157,7 +157,6 @@ class EgoAgent(Agent):
             initial_linear_velocity=initial_linear_velocity,
             initial_angular_velocity=initial_angular_velocity,
             horizon=horizon,
-            sensor_radius=sensor_radius,
             geometry=geometry,
             avoid_obstacles=True,
             linear_velocity_bounds=linear_velocity_bounds,
@@ -180,7 +179,7 @@ class EgoAgent(Agent):
             angular_velocity_bounds=self.angular_velocity_bounds,
             linear_acceleration_bounds=self.linear_acceleration_bounds,
             angular_acceleration_bounds=self.angular_acceleration_bounds,
-            inflation_radius=(2 * self.geometry.radius + 0.5),
+            inflation_radius=(2 * self.geometry.radius),
             obstacles=obstacles if self.avoid_obstacles else None,
         )
         self.linear_velocity += self.controls_matrix[0, 0] * self.time_step
