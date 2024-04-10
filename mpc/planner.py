@@ -98,7 +98,7 @@ class MotionPlanner:
             self.symbolic_states_matrix[:, 1:-1]
             - self.symbolic_terminal_states_vector[self.num_states :],
         )
-        cost = cast(ca.MX, cast(ca.MX, (error.T @ self.weight_matrix)).T * error)
+        cost = cast(ca.MX, cast(ca.MX, (error.T @ self.weight_matrix)) @ error)
         return cast(
             ca.MX,
             ca.sum2(ca.sum1(cost)),

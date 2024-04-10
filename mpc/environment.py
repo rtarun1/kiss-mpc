@@ -81,7 +81,7 @@ class LocalEnvironment(Environment):
 
         goal_list = [
             # (5, 17),
-            np.array([5, 20, np.pi / 2]),
+            # np.array([5, 20, np.pi / 2]),
             # np.array([3, 12.5, np.pi / 2]),
             # np.array([1, 14, np.deg2rad(110)]),
             # np.array([-2.5, 17, np.pi / 2]),

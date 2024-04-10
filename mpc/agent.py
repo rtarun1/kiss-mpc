@@ -179,7 +179,7 @@ class EgoAgent(Agent):
             angular_velocity_bounds=self.angular_velocity_bounds,
             linear_acceleration_bounds=self.linear_acceleration_bounds,
             angular_acceleration_bounds=self.angular_acceleration_bounds,
-            inflation_radius=(2 * self.geometry.radius),
+            inflation_radius=(self.geometry.radius + 0.35),
             obstacles=obstacles if self.avoid_obstacles else None,
         )
         self.linear_velocity += self.controls_matrix[0, 0] * self.time_step

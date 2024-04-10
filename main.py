@@ -7,11 +7,12 @@ from mpc.obstacle import DynamicObstacle, StaticObstacle
 
 agent1 = EgoAgent(
     id=1,
-    initial_position=(5, -4),
+    initial_position=(6, -4),
     initial_orientation=np.pi / 2,
-    goal_position=(2.5, 12.5),
+    goal_position=(6, 15),
     goal_orientation=np.pi / 2,
     horizon=20,
+    # left_right_lane_bounds=(-6, 1000.5),
 )
 
 static_obstacle_rectangle = StaticObstacle(
@@ -27,14 +28,24 @@ static_obstacle_rectangle_2 = StaticObstacle(
 
 static_obstacle_ellipse = StaticObstacle(
     id=2,
-    geometry=Ellipsoid.from_rectangle(Rectangle(height=3, width=10)),
-    position=(5, 22),
+    geometry=Ellipsoid.from_rectangle(Rectangle(height=2, width=10)),
+    position=(10, 10),
 )
 
 static_obstacle_circle = StaticObstacle(
     id=3,
-    geometry=Circle(radius=3),
-    position=(5, 20),
+    geometry=Circle(radius=1),
+    position=(6, 10),
+)
+static_obstacle_circle_2 = StaticObstacle(
+    id=3,
+    geometry=Circle(radius=1.5),
+    position=(8, 10),
+)
+static_obstacle_circle_3 = StaticObstacle(
+    id=3,
+    geometry=Circle(radius=1.5),
+    position=(10, 10),
 )
 
 dynamic_obstacle = DynamicObstacle(
@@ -45,7 +56,13 @@ dynamic_obstacle = DynamicObstacle(
 
 environment = LocalEnvironment(
     agent=agent1,
-    static_obstacles=[static_obstacle_rectangle, static_obstacle_rectangle_2],
+    static_obstacles=[
+        # static_obstacle_rectangle_2
+        static_obstacle_ellipse
+        # static_obstacle_circle,
+        # static_obstacle_circle_2,
+        # static_obstacle_circle_3,
+    ],
     dynamic_obstacles=[],
     # save_video=True,
 )
