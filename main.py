@@ -59,11 +59,11 @@ dynamic_obstacle = DynamicObstacle(
 environment = LocalEnvironment(
     agent=agent1,
     static_obstacles=[
-        # static_obstacle_rectangle_2,
+        static_obstacle_rectangle_2,
         # static_obstacle_ellipse,
-        static_obstacle_circle,
-        static_obstacle_circle_2,
-        static_obstacle_circle_3,
+        # static_obstacle_circle,
+        # static_obstacle_circle_2,
+        # static_obstacle_circle_3,
     ],
     dynamic_obstacles=[],
     # save_video=True,
