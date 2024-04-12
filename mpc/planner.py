@@ -65,7 +65,7 @@ class MotionPlanner:
         self.num_controls = cast(int, self.symbolic_controls.numel())
 
         # Weight matrix for goal cost
-        self.weight_matrix = ca.DM(ca.diagcat(200, 200, 500))
+        self.weight_matrix = ca.DM(ca.diagcat(10, 10, 0))
 
         # Obstacle cost weight
         # self.obstacle_cost_weight = ca.DM(10000)
@@ -98,10 +98,17 @@ class MotionPlanner:
             self.symbolic_states_matrix[:, 1:-1]
             - self.symbolic_terminal_states_vector[self.num_states :],
         )
-        cost = cast(ca.MX, cast(ca.MX, (error.T @ self.weight_matrix)) @ error)
+        cost = cast(
+            ca.MX,
+            ca.sum2(cast(ca.MX, cast(ca.MX, (error.T @ self.weight_matrix)) * error.T)),
+        )
+        # additional_weights = DM_vertcat(
+        #     ca.repmat(ca.DM(1), (cost.shape[0] - 1)),
+        #     ca.DM(1),
+        # )
         return cast(
             ca.MX,
-            ca.sum2(ca.sum1(cost)),
+            ca.sum1(cost),
         )
 
     def _get_symbolic_angular_acceleration_cost(self) -> ca.MX:
@@ -110,7 +117,7 @@ class MotionPlanner:
         )
         return cast(
             ca.MX,
-            ca.sum2(ca.sum1(squared_angular_acceleration)),
+            ca.sum1(ca.sum2(squared_angular_acceleration)),
         )
 
     # def _get_symbolic_obstacle_cost(

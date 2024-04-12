@@ -19,6 +19,7 @@ class Environment:
         self.agent = agent
         self.static_obstacles = static_obstacles
         self.dynamic_obstacles = dynamic_obstacles
+
         self.rollout_times = []
 
     @property
