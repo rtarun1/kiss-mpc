@@ -19,12 +19,12 @@ agent1 = EgoAgent(
 
 static_obstacle_rectangle = StaticObstacle(
     id=1,
-    geometry=Rectangle(height=2, width=10),
+    geometry=Rectangle(height=2, width=8),
     position=(-4, 10),
 )
 static_obstacle_rectangle_2 = StaticObstacle(
     id=2,
-    geometry=Rectangle(height=2, width=10),
+    geometry=Rectangle(height=2, width=8),
     position=(8, 10),
 )
 
@@ -59,13 +59,14 @@ dynamic_obstacle = DynamicObstacle(
 environment = LocalEnvironment(
     agent=agent1,
     static_obstacles=[
-        static_obstacle_rectangle_2,
+        # static_obstacle_rectangle,
+        # static_obstacle_rectangle_2,
         # static_obstacle_ellipse,
-        # static_obstacle_circle,
-        # static_obstacle_circle_2,
-        # static_obstacle_circle_3,
+        static_obstacle_circle,
+        static_obstacle_circle_2,
+        static_obstacle_circle_3,
     ],
     dynamic_obstacles=[],
-    # save_video=True,
+    save_video=True,
 )
 environment.loop()
