@@ -36,6 +36,8 @@ class Plotter:
 
         axes.set_aspect("equal")
 
+        self.patches = []
+
         axes.add_patch(self.agent.geometry.patch)
         agent.geometry.update_patch(self.agent.state)
 
@@ -191,7 +193,19 @@ class Plotter:
                 video_path,
             ]
         )
+        # Delete frames
+        for file in os.listdir(self.video_path):
+            if file.endswith(".png"):
+                os.remove(os.path.join(self.video_path, file))
 
     def close(self):
         plt.pause(2)
+        self.agent.geometry.patch.remove()
+        self.agent.geometry.patch.figure.clear()
+        for obstacle in self.obstacles:
+            obstacle.geometry.patch.remove()
+            obstacle.geometry.patch.figure.clear()
+        plt.figure().clear()
         plt.close()
+        plt.cla()
+        plt.clf()
