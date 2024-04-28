@@ -201,8 +201,6 @@ class Plotter:
     def close(self):
         plt.pause(2)
         self.agent.geometry.patch.figure.clear()
-        for obstacle in self.obstacles:
-            obstacle.geometry.patch.figure.clear()
         plt.figure().clear()
         plt.close()
         plt.cla()
