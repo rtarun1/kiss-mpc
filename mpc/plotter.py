@@ -200,10 +200,8 @@ class Plotter:
 
     def close(self):
         plt.pause(2)
-        self.agent.geometry.patch.remove()
         self.agent.geometry.patch.figure.clear()
         for obstacle in self.obstacles:
-            obstacle.geometry.patch.remove()
             obstacle.geometry.patch.figure.clear()
         plt.figure().clear()
         plt.close()
