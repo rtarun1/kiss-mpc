@@ -202,8 +202,4 @@ class Plotter:
 
     def close(self):
         plt.pause(2)
-        plt.figure().artists.clear()
-        plt.figure().clear()
         plt.close()
-        plt.cla()
-        plt.clf()
