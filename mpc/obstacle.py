@@ -17,7 +17,6 @@ class Obstacle(ABC):
     ):
         self.id = id
         self.geometry = geometry
-        self.state = np.array([*position, orientation])
 
     @abstractmethod
     def calculate_matrix_distance(self, states_matrix: np.ndarray):
@@ -45,6 +44,7 @@ class StaticObstacle(Obstacle):
         super().__init__(
             id=id, geometry=geometry, position=position, orientation=orientation
         )
+        self.state = np.array([*position, orientation])
 
     def calculate_matrix_distance(self, states_matrix: np.ndarray):
         return np.stack(
@@ -66,77 +66,3 @@ class StaticObstacle(Obstacle):
                 ]
             ),
         )
-
-
-class DynamicObstacle(Obstacle):
-    def __init__(
-        self,
-        id: int,
-        geometry: Geometry,
-        position: Tuple[float, float],
-        orientation: float = np.pi / 2,
-        linear_velocity: float = -0.1,
-        angular_velocity: float = 0,
-    ):
-        super().__init__(
-            id=id, geometry=geometry, position=position, orientation=orientation
-        )
-        self.linear_velocity = linear_velocity
-        self.angular_velocity = angular_velocity
-        self.initial_state = self.state
-
-    def _predict_state(self, state: np.ndarray):
-        return np.array(
-            [
-                state[0] + self.linear_velocity * np.cos(np.deg2rad(state[2])),
-                state[1] + self.linear_velocity * np.sin(np.deg2rad(state[2])),
-                state[2] + self.angular_velocity,
-            ]
-        )
-
-    def _get_predicted_states_matrix(self, horizon: int):
-        predicted_states = np.zeros((3, horizon))
-        predicted_states[:, 0] = self.state
-
-        for time_step in range(1, horizon):
-            predicted_states[:, time_step] = self._predict_state(
-                predicted_states[:, time_step - 1]
-            )
-
-        return predicted_states
-
-    def calculate_matrix_distance(self, states_matrix: np.ndarray):
-        obstacle_states_matrix = self._get_predicted_states_matrix(
-            states_matrix.shape[1]
-        )
-        return np.stack(
-            [
-                self.geometry.calculate_distance(
-                    state, obstacle_states_matrix[:, index]
-                )
-                for index, state in enumerate(states_matrix.T)
-            ]
-        )
-
-    def calculate_symbolic_matrix_distance(self, symbolic_states_matrix: ca.MX):
-        obstacle_states_matrix = self._get_predicted_states_matrix(
-            symbolic_states_matrix.shape[1]
-        )
-        return cast(
-            ca.MX,
-            ca.vertcat(
-                *[
-                    self.geometry.calculate_symbolic_distance(
-                        symbolic_states_matrix[:, time_step],
-                        obstacle_states_matrix[:, time_step],
-                    )
-                    for time_step in range(symbolic_states_matrix.shape[1])
-                ]
-            ),
-        )
-
-    def step(self):
-        self.state = self._predict_state(self.state)
-
-    def reset(self):
-        self.state = self.initial_state

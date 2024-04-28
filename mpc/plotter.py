@@ -3,11 +3,12 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
-import numpy as np
+# import numpy as np
 from matplotlib import pyplot as plt
 
 from mpc.agent import EgoAgent
-from mpc.obstacle import DynamicObstacle, StaticObstacle
+from mpc.dynamic_obstacle import DynamicObstacle
+from mpc.obstacle import StaticObstacle
 
 
 class Plotter:
@@ -86,30 +87,30 @@ class Plotter:
         )[0]
 
         # plot velocity arrows for dynamic obstacles
-        self.dynamic_obstacle_plots = [
-            axes.arrow(
-                obstacle.state[0],
-                obstacle.state[1],
-                obstacle.linear_velocity * np.cos(obstacle.state[2]),
-                obstacle.linear_velocity * np.sin(obstacle.state[2]),
-                head_width=0.2,
-                head_length=0.2,
-                fc="g",
-                ec="g",
-            )
-            for obstacle in self.dynamic_obstacles
-        ]
-
-        # self.obstacle_plots = [
-        #     axes.plot(
-        #         obstacle.shadow_agent.states_matrix[0, 1:],
-        #         obstacle.shadow_agent.states_matrix[1, 1:],
-        #         marker=".",
-        #         color="green",
-        #         # s=1.5,
-        #     )[0]
+        # self.dynamic_obstacle_plots = [
+        #     axes.arrow(
+        #         obstacle.state[0],
+        #         obstacle.state[1],
+        #         obstacle.linear_velocity * np.cos(obstacle.state[2]),
+        #         obstacle.linear_velocity * np.sin(obstacle.state[2]),
+        #         head_width=0.2,
+        #         head_length=0.2,
+        #         fc="g",
+        #         ec="g",
+        #     )
         #     for obstacle in self.dynamic_obstacles
         # ]
+
+        self.dynamic_obstacle_plots = [
+            axes.plot(
+                obstacle.states_matrix[0, 1:],
+                obstacle.states_matrix[1, 1:],
+                marker=".",
+                color="green",
+                # s=1.5,
+            )[0]
+            for obstacle in self.dynamic_obstacles
+        ]
 
         self.goal_plot.set_data(self.agent.goal_state[0], self.agent.goal_state[1])
 
@@ -155,12 +156,18 @@ class Plotter:
         for obstacle_plot, obstacle in zip(
             self.dynamic_obstacle_plots, self.dynamic_obstacles
         ):
+            # obstacle_plot.set_data(
+            #     x=obstacle.state[0],
+            #     y=obstacle.state[1],
+            #     dx=obstacle.linear_velocity * np.cos(obstacle.state[2]),
+            #     dy=obstacle.linear_velocity * np.sin(obstacle.state[2]),
+            # )
             obstacle_plot.set_data(
-                x=obstacle.state[0],
-                y=obstacle.state[1],
-                dx=obstacle.linear_velocity * np.cos(obstacle.state[2]),
-                dy=obstacle.linear_velocity * np.sin(obstacle.state[2]),
+                obstacle.states_matrix[0, 1:],
+                obstacle.states_matrix[1, 1:],
             )
+
+        self.update_goal()
 
         if self.video_path:
             self.save_frame()

@@ -1,11 +1,12 @@
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
 from mpc.agent import EgoAgent
-from mpc.obstacle import DynamicObstacle, StaticObstacle
+from mpc.dynamic_obstacle import DynamicObstacle
+from mpc.obstacle import StaticObstacle
 from mpc.plotter import Plotter
 
 
@@ -15,12 +16,30 @@ class Environment:
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
         dynamic_obstacles: List[DynamicObstacle],
+        waypoints: List[Tuple[Tuple, float]],
     ):
         self.agent = agent
         self.static_obstacles = static_obstacles
         self.dynamic_obstacles = dynamic_obstacles
 
+        for obstacle in self.dynamic_obstacles:
+            assert (
+                obstacle.horizon == agent.horizon
+            ), "Dynamic obstacle horizon must match agent horizon"
+
+        self.waypoints = waypoints
+        self.waypoint_index = 0
+        self.agent.update_goal(*self.current_waypoint)
+
         self.rollout_times = []
+
+    @property
+    def current_waypoint(self):
+        return self.waypoints[self.waypoint_index]
+
+    @property
+    def final_goal_reached(self):
+        return self.waypoint_index == len(self.waypoints) - 1 and self.agent.at_goal
 
     @property
     def obstacles(self):
@@ -41,6 +60,11 @@ class Environment:
         for obstacle in self.dynamic_obstacles:
             obstacle.step()
 
+        if self.agent.at_goal and not self.final_goal_reached:
+            print("Reached waypoint", self.waypoint_index + 1)
+            self.waypoint_index += 1
+            self.agent.update_goal(*self.current_waypoint)
+
     def reset(self):
         self.agent.reset()
         self.rollout_times = []
@@ -55,11 +79,12 @@ class LocalEnvironment(Environment):
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
         dynamic_obstacles: List[DynamicObstacle],
+        waypoints: List[Tuple[Tuple, float]],
         plot: bool = True,
         results_path: str = "results",
         save_video: bool = False,
     ):
-        super().__init__(agent, static_obstacles, dynamic_obstacles)
+        super().__init__(agent, static_obstacles, dynamic_obstacles, waypoints)
         self.plot = plot
         self.results_path = Path(results_path)
 
@@ -80,39 +105,20 @@ class LocalEnvironment(Environment):
                 video_path=self.results_path if self.save_video else None,
             )
 
-        goal_list = [
-            # (5, 17),
-            # np.array([5, 20, np.pi / 2]),
-            # np.array([3, 12.5, np.pi / 2]),
-            # np.array([1, 14, np.deg2rad(110)]),
-            # np.array([-2.5, 17, np.pi / 2]),
-            # # np.array([-1, 21, np.pi / 2]),
-            # np.array([5, 50, np.deg2rad(90)]),
-        ]
-
-        while (not self.agent.at_goal) and max_timesteps > 0:
-            # print(self.agent.goal_state)
+        while (not self.final_goal_reached) and max_timesteps > 0:
             self.step()
 
             if self.plot:
                 plotter.update_plot()
 
-            if (self.agent.at_goal) and len(goal_list) > 0:
-                self.agent.goal_state = goal_list.pop(0)
-                if self.plot:
-                    plotter.update_goal()
-
             max_timesteps -= 1
 
-            # print(
-            #     "Current average rollout time:",
-            #     self.total_rollout_time / self.total_rollout_steps,
-            # )
             print(
                 f"Step {len(self.rollout_times)}, Time: {self.rollout_times[-1] * 1000:.2f} ms"
             )
 
         time_array = np.array(self.rollout_times)
+
         # Print metrics excluding first rollout
         print(f"Average rollout time: {time_array[1:].mean() * 1000:.2f} ms")
 
@@ -129,5 +135,6 @@ class ROSEnvironment(Environment):
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
         dynamic_obstacles: List[DynamicObstacle],
+        waypoints: List[Tuple[Tuple, float]],
     ):
-        super().__init__(agent, static_obstacles, dynamic_obstacles)
+        super().__init__(agent, static_obstacles, dynamic_obstacles, waypoints)

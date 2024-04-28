@@ -4,9 +4,9 @@ from geometry_msgs.msg import Pose, Twist
 from people_msgs.msg import People, Person
 
 from mpc.agent import EgoAgent
+from mpc.dynamic_obstacle import DynamicObstacle
 from mpc.environment import ROSEnvironment
 from mpc.geometry import Circle, Rectangle
-from mpc.obstacle import DynamicObstacle
 
 
 class ROSInterface:
