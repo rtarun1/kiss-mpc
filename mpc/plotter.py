@@ -38,7 +38,8 @@ class Plotter:
 
         self.patches = []
 
-        axes.add_patch(self.agent.geometry.patch)
+        if self.agent.geometry.patch.figure is None:
+            axes.add_patch(self.agent.geometry.patch)
         agent.geometry.update_patch(self.agent.state)
 
         # add agent id to plot
@@ -51,7 +52,8 @@ class Plotter:
         )
 
         for obstacle in self.obstacles:
-            axes.add_patch(obstacle.geometry.patch)
+            if obstacle.geometry.patch.figure is None:
+                axes.add_patch(obstacle.geometry.patch)
             obstacle.geometry.update_patch(obstacle.state)
 
         self.static_obstacle_ids = [
@@ -200,7 +202,7 @@ class Plotter:
 
     def close(self):
         plt.pause(2)
-        self.agent.geometry.patch.figure.clear()
+        plt.figure().artists.clear()
         plt.figure().clear()
         plt.close()
         plt.cla()
