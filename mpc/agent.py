@@ -12,6 +12,7 @@ class Agent(ABC):
     def __init__(
         self,
         id: int,
+        radius: float,
         initial_position: Tuple[float, float],
         initial_orientation: float,
         planning_time_step: float,
@@ -19,7 +20,6 @@ class Agent(ABC):
         initial_angular_velocity: float,
         horizon: int,
         sensor_radius: float,
-        geometry: Circle,
         avoid_obstacles: bool,
         linear_velocity_bounds: Tuple[float, float],
         angular_velocity_bounds: Tuple[float, float],
@@ -33,12 +33,12 @@ class Agent(ABC):
         assert horizon > 0, "Horizon must be greater than 0"
 
         self.id = id
-        self.geometry = geometry
+        self.geometry = Circle(center=initial_position, radius=radius)
         self.sensor_radius = sensor_radius
 
         self.avoid_obstacles = avoid_obstacles
 
-        self.initial_state = np.array([*initial_position, initial_orientation])
+        self.initial_state = np.array([*self.geometry.location, initial_orientation])
         self.goal_state = (
             np.array([*goal_position, goal_orientation])
             if goal_position
@@ -86,7 +86,7 @@ class Agent(ABC):
 
     @property
     def at_goal(self):
-        return self.geometry.calculate_distance(self.state, self.goal_state) - 1 <= 0
+        return self.geometry.calculate_distance(self.goal_state) - 1 <= 0
 
     def reset(self, matrices_only: bool = False, to_initial_state: bool = True):
         self.states_matrix = np.tile(
@@ -103,14 +103,14 @@ class EgoAgent(Agent):
     def __init__(
         self,
         id: int,
+        radius: float,
         initial_position: Tuple[float, float],
         initial_orientation: float,
         planning_time_step: float = 0.041,
         initial_linear_velocity: float = 0,
         initial_angular_velocity: float = 0,
         horizon: int = 50,
-        geometry: Circle = Circle(1),
-        sensor_radius: float = 10,
+        sensor_radius: float = 5,
         linear_velocity_bounds: Tuple[float, float] = (0, 12),
         angular_velocity_bounds: Tuple[float, float] = (-0.78, 0.78),
         linear_acceleration_bounds: Tuple[float, float] = (-5, 5),
@@ -122,6 +122,7 @@ class EgoAgent(Agent):
     ):
         super().__init__(
             id=id,
+            radius=radius,
             initial_position=initial_position,
             initial_orientation=initial_orientation,
             goal_position=goal_position,
@@ -130,7 +131,6 @@ class EgoAgent(Agent):
             initial_linear_velocity=initial_linear_velocity,
             initial_angular_velocity=initial_angular_velocity,
             horizon=horizon,
-            geometry=geometry,
             sensor_radius=sensor_radius,
             avoid_obstacles=True,
             linear_velocity_bounds=linear_velocity_bounds,
@@ -160,6 +160,6 @@ class EgoAgent(Agent):
             inflation_radius=(self.geometry.radius + 0.35),
             obstacles=obstacles if self.avoid_obstacles else None,
         )
-
+        self.geometry.location = self.state[:2]
         self.linear_velocity += self.controls_matrix[0, 0] * self.time_step
         self.angular_velocity += self.controls_matrix[1, 0] * self.time_step

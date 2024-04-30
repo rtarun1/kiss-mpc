@@ -36,11 +36,7 @@ class Plotter:
 
         axes.set_aspect("equal")
 
-        self.patches = []
-
-        if self.agent.geometry.patch.figure is None:
-            axes.add_patch(self.agent.geometry.patch)
-        agent.geometry.update_patch(self.agent.state)
+        self.agent_patch = axes.add_patch(self.agent.geometry.create_patch())
 
         # add agent id to plot
         self.agent_id = axes.text(
@@ -51,10 +47,15 @@ class Plotter:
             color="black",
         )
 
-        for obstacle in self.obstacles:
-            if obstacle.geometry.patch.figure is None:
-                axes.add_patch(obstacle.geometry.patch)
-            obstacle.geometry.update_patch(obstacle.state)
+        self.obstacle_patches = []
+
+        for obstacle in self.dynamic_obstacles:
+            self.obstacle_patches.append(
+                axes.add_patch(obstacle.geometry.create_patch())
+            )
+
+        for obstacle in self.static_obstacles:
+            axes.add_patch(obstacle.geometry.create_patch())
 
         self.static_obstacle_ids = [
             axes.text(
@@ -143,7 +144,7 @@ class Plotter:
 
         self.recenter_plot()
 
-        self.agent.geometry.update_patch(self.agent.state)
+        self.agent.geometry.update_patch(self.agent_patch)
 
         self.agent_id.set_position((self.agent.state[0], self.agent.state[1]))
 
@@ -151,7 +152,7 @@ class Plotter:
             self.dynamic_obstacle_ids[index].set_position(
                 (obstacle.state[0], obstacle.state[1])
             )
-            obstacle.geometry.update_patch(obstacle.state)
+            obstacle.geometry.update_patch(self.obstacle_patches[index])
 
         self.states_plot.set_data(
             self.agent.states_matrix[0, 1:], self.agent.states_matrix[1, 1:]

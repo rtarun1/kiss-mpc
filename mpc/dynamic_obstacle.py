@@ -18,11 +18,10 @@ class DynamicObstacle(Obstacle):
         goal_orientation: float = np.deg2rad(90),
         horizon: int = 50,  # Make sure this is equal to the horizon of the ego agent
     ):
-        super().__init__(
-            id=id, geometry=Circle(1), position=position, orientation=orientation
-        )
+        super().__init__(id=id, geometry=Circle(center=position, radius=1))
         self.shadow_agent = ShadowAgent(
             id=id,
+            radius=1,
             initial_position=position,
             initial_orientation=orientation,
             goal_position=goal_position,
@@ -55,7 +54,7 @@ class DynamicObstacle(Obstacle):
     def calculate_matrix_distance(self, states_matrix: np.ndarray):
         return np.stack(
             [
-                self.geometry.calculate_distance(state, self.states_matrix[:, index])
+                self.geometry.calculate_distance(state, self.states_matrix[:2, index])
                 for index, state in enumerate(states_matrix.T)
             ]
         )
@@ -66,8 +65,8 @@ class DynamicObstacle(Obstacle):
             ca.vertcat(
                 *[
                     self.geometry.calculate_symbolic_distance(
-                        symbolic_states_matrix[:, time_step],
-                        self.states_matrix[:, time_step],
+                        symbolic_states_matrix[:2, time_step],
+                        self.states_matrix[:2, time_step],
                     )
                     for time_step in range(symbolic_states_matrix.shape[1])
                 ]
@@ -76,6 +75,7 @@ class DynamicObstacle(Obstacle):
 
     def step(self):
         self.shadow_agent.step()
+        self.geometry.location = self.shadow_agent.state[:2]
 
     @property
     def state(self):
