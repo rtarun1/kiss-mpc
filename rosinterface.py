@@ -1,12 +1,15 @@
 import numpy as np
 import rospy
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, Twist, Point32
 from people_msgs.msg import People, Person
+from costmap_converter.msg import ObstacleArrayMsg, ObstacleMsg
+
+from typing import cast, List
 
 from mpc.agent import EgoAgent
 from mpc.dynamic_obstacle import DynamicObstacle
 from mpc.environment import ROSEnvironment
-from mpc.geometry import Circle, Rectangle
+from mpc.geometry import Circle, Polygon
 
 
 class ROSInterface:
@@ -36,7 +39,7 @@ class ROSInterface:
         rospy.Subscriber("/people", People, self.people_callback)
         rospy.Subscriber("/waypoint", Pose, self.waypoint_callback)
         rospy.Subscriber("/odom", Pose, self.odom_callback)
-        # rospy.Subcriber("/obstacles")
+        rospy.Subscriber("/costmap_obstacles", ObstacleArrayMsg, self.obstacle_callback)
 
         self.velocity_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
 
@@ -62,6 +65,22 @@ class ROSInterface:
             [message.position.x, message.position.y, message.orientation.z]
         )
         self.environment.agent.reset(matrices_only=True)
+
+    def obstacle_callback(self, message: ObstacleArrayMsg):
+        static_obstacle_list = []
+
+        for obstacle in message.obstacles:
+            obstacle: ObstacleMsg
+            # Create a static obstacle for each polygon
+            points = [(point.x, point.y) for point in cast(List[Point32], obstacle.polygon.points)]
+            static_obstacle_list.append(
+                Polygon(
+                    id=obstacle.id,
+                    vertices=points,
+                )
+            )
+
+        self.environment.static_obstacles = static_obstacle_list
 
     def people_callback(self, message: People):
         # Create a dynamic obstacle for each person
