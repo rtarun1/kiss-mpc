@@ -7,7 +7,7 @@ from typing import List, Optional
 from matplotlib import pyplot as plt
 
 from mpc.agent import EgoAgent
-from mpc.dynamic_obstacle import DynamicObstacle
+from mpc.dynamic_obstacle import SimulatedDynamicObstacle
 from mpc.obstacle import StaticObstacle
 
 
@@ -16,7 +16,7 @@ class Plotter:
         self,
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[DynamicObstacle],
+        dynamic_obstacles: List[SimulatedDynamicObstacle],
         video_path: Optional[Path] = None,
     ):
         self.agent = agent

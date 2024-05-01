@@ -19,24 +19,16 @@ class ROSInterface:
     def __init__(self):
         self.environment = ROSEnvironment(
             agent=EgoAgent(
-                id=0,
+                id=1,
+                radius=1,
                 initial_position=(0, 0),
-                initial_orientation=0,
-                goal_position=(0, 0),
-                goal_orientation=0,
-                planning_time_step=0.041,
-                initial_linear_velocity=0,
-                initial_angular_velocity=0,
-                horizon=30,
-                geometry=Circle.from_rectangle(Rectangle(width=0.5, height=0.5)),
-                linear_velocity_bounds=(0, 12),
-                angular_velocity_bounds=(-np.pi / 4, np.pi / 4),
-                linear_acceleration_bounds=(-50, 50),
-                angular_acceleration_bounds=(-np.pi, np.pi),
-                left_right_lane_bounds=(-1000.5, 1000.5),
+                initial_orientation=np.deg2rad(90),
+                horizon=20,
+                use_warm_start=True,
             ),
             static_obstacles=[],
             dynamic_obstacles=[],
+            waypoints=[],
         )
 
         rospy.init_node("ros_mpc_interface")
@@ -44,6 +36,7 @@ class ROSInterface:
         rospy.Subscriber("/people", People, self.people_callback)
         rospy.Subscriber("/waypoint", Pose, self.waypoint_callback)
         rospy.Subscriber("/odom", Pose, self.odom_callback)
+        # rospy.Subcriber("/obstacles")
 
         self.velocity_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
 
@@ -83,7 +76,7 @@ class ROSInterface:
                     orientation=np.arctan2(person.velocity.y, person.velocity.x),
                     linear_velocity=(person.velocity.x**2 + person.velocity.y**2),
                     angular_velocity=0,
-                    geometry=Rectangle(width=0.5, height=0.5),
+                    horizon=20,
                 )
             )
 
@@ -91,9 +84,10 @@ class ROSInterface:
 
     def waypoint_callback(self, message: Pose):
         # Update the agent's goal with the waypoint position
-        self.environment.agent.goal_state = np.array(
+        self.environment.waypoints = np.array(
             [message.position.x, message.position.y, message.orientation.z]
         )
+        self.environment.waypoint_index = 0
 
 
 if __name__ == "__main__":

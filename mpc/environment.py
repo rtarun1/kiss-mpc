@@ -5,7 +5,7 @@ from typing import List, Tuple
 import numpy as np
 
 from mpc.agent import EgoAgent
-from mpc.dynamic_obstacle import DynamicObstacle
+from mpc.dynamic_obstacle import DynamicObstacle, SimulatedDynamicObstacle
 from mpc.obstacle import StaticObstacle
 from mpc.plotter import Plotter
 
@@ -15,7 +15,7 @@ class Environment:
         self,
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[DynamicObstacle],
+        dynamic_obstacles: List[SimulatedDynamicObstacle],
         waypoints: List[Tuple[Tuple, float]],
     ):
         self.agent = agent
@@ -68,6 +68,8 @@ class Environment:
     def reset(self):
         self.agent.reset()
         self.rollout_times = []
+        self.waypoint_index = 0
+        self.agent.update_goal(*self.current_waypoint)
 
         for obstacle in self.dynamic_obstacles:
             obstacle.reset()
@@ -78,7 +80,7 @@ class LocalEnvironment(Environment):
         self,
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[DynamicObstacle],
+        dynamic_obstacles: List[SimulatedDynamicObstacle],
         waypoints: List[Tuple[Tuple, float]],
         plot: bool = True,
         results_path: str = "results",
@@ -136,5 +138,28 @@ class ROSEnvironment(Environment):
         static_obstacles: List[StaticObstacle],
         dynamic_obstacles: List[DynamicObstacle],
         waypoints: List[Tuple[Tuple, float]],
+        # plot: bool = True,
+        # results_path: str = "results",
+        # save_video: bool = False,
     ):
         super().__init__(agent, static_obstacles, dynamic_obstacles, waypoints)
+
+    def step(self):
+        self.agent.step(
+            obstacles=[
+                obstacle
+                for obstacle in self.obstacles
+                if obstacle.calculate_distance(self.agent.state)
+                <= self.agent.sensor_radius
+            ]
+        )
+
+        if self.agent.at_goal and not self.final_goal_reached:
+            print("Reached waypoint", self.waypoint_index + 1)
+            self.waypoint_index += 1
+            self.agent.update_goal(*self.current_waypoint)
+
+    def reset(self):
+        self.agent.reset()
+        self.waypoint_index = 0
+        self.agent.update_goal(*self.current_waypoint)

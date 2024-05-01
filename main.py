@@ -1,7 +1,7 @@
 import numpy as np
 
 from mpc.agent import EgoAgent
-from mpc.dynamic_obstacle import DynamicObstacle
+from mpc.dynamic_obstacle import SimulatedDynamicObstacle
 from mpc.environment import LocalEnvironment
 from mpc.geometry import Circle, Polygon
 from mpc.obstacle import StaticObstacle
@@ -58,7 +58,7 @@ static_polygonal_obstacle = StaticObstacle(
     ),
 )
 
-dynamic_obstacle = DynamicObstacle(
+dynamic_obstacle = SimulatedDynamicObstacle(
     id=4,
     position=(13, 12.5),
     orientation=np.deg2rad(-90),
