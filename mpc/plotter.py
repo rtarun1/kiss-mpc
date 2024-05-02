@@ -1,7 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 # import numpy as np
 from matplotlib import pyplot as plt
@@ -17,7 +17,7 @@ class Plotter:
         agent: EgoAgent,
         static_obstacles: List[StaticObstacle],
         dynamic_obstacles: List[SimulatedDynamicObstacle],
-        waypoints,
+        waypoints: List[Tuple[float, float]],
         video_path: Optional[Path] = None,
     ):
         self.agent = agent
@@ -59,14 +59,14 @@ class Plotter:
             axes.add_patch(obstacle.geometry.create_patch())
 
         self.static_obstacle_ids = [
-            axes.text(
-                obstacle.state[0],
-                obstacle.state[1],
-                f"Obstacle {obstacle.id}",
-                fontsize=12,
-                color="black",
-            )
-            for obstacle in self.static_obstacles
+            # axes.text(
+            #     obstacle.state[0],
+            #     obstacle.state[1],
+            #     f"Obstacle {obstacle.id}",
+            #     fontsize=12,
+            #     color="black",
+            # )
+            # for obstacle in self.static_obstacles
         ]
 
         self.dynamic_obstacle_ids = [
@@ -123,7 +123,7 @@ class Plotter:
         ]
 
         self.goal_plot.set_data(self.agent.goal_state[0], self.agent.goal_state[1])
-        #self.final_goal_plot.set_data(waypoints[-1][0], waypoints[-1][1])
+        # self.final_goal_plot.set_data(waypoints[-1][0], waypoints[-1][1])
 
         self.goal_plot_text = axes.text(
             self.agent.goal_state[0],
@@ -151,10 +151,7 @@ class Plotter:
         )
         if len(waypoints) > 0:
             self.final_goal_plot.set_data(waypoints[-1][0], waypoints[-1][1])
-            self.final_goal_plot_text.set_position(
-                (waypoints[-1][0], waypoints[-1][1])
-            )
-
+            self.final_goal_plot_text.set_position((waypoints[-1][0], waypoints[-1][1]))
 
     @property
     def obstacles(self):
@@ -163,8 +160,8 @@ class Plotter:
     def recenter_plot(self):
         # Center plot to agent
         axes = plt.gca()
-        axes.set_xlim(self.agent.state[0] - 10, self.agent.state[0] + 10)
-        axes.set_ylim(self.agent.state[1] - 10, self.agent.state[1] + 10)
+        axes.set_xlim(self.agent.state[0] - 5, self.agent.state[0] + 5)
+        axes.set_ylim(self.agent.state[1] - 5, self.agent.state[1] + 5)
 
     def save_frame(self):
         # Save frame to video
@@ -236,14 +233,13 @@ class Plotter:
             if file.endswith(".png"):
                 os.remove(os.path.join(self.video_path, file))
 
-
     def update_static_obstacles(self, static_obstacles):
         self.static_obstacles = static_obstacles
         # Remove old patches
         for patch in self.obstacle_patches:
             patch.remove()
         self.obstacle_patches = []
-        
+
         for obstacle in self.static_obstacles:
             self.obstacle_patches.append(
                 plt.gca().add_patch(obstacle.geometry.create_patch())

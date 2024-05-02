@@ -26,8 +26,8 @@ class Agent(ABC):
         linear_acceleration_bounds: Tuple[float, float],
         angular_acceleration_bounds: Tuple[float, float],
         left_right_lane_bounds: Tuple[float, float],
-        goal_position: Tuple[float, float]  = None,
-        goal_orientation: float  = None,
+        goal_position: Tuple[float, float] = None,
+        goal_orientation: float = None,
         use_warm_start: bool = False,
     ):
         assert horizon > 0, "Horizon must be greater than 0"
@@ -116,8 +116,8 @@ class EgoAgent(Agent):
         linear_acceleration_bounds: Tuple[float, float] = (-5, 5),
         angular_acceleration_bounds: Tuple[float, float] = (-10, 10),
         left_right_lane_bounds: Tuple[float, float] = (-1000, 1000),
-        goal_position: Tuple[float, float]  = None,
-        goal_orientation: float  = None,
+        goal_position: Tuple[float, float] = None,
+        goal_orientation: float = None,
         use_warm_start: bool = False,
     ):
         super().__init__(
@@ -144,7 +144,6 @@ class EgoAgent(Agent):
     def step(self, obstacles: Optional[List[Obstacle]] = None):
         if not self.use_warm_start:
             self.reset(matrices_only=True, to_initial_state=False)
-
         self.states_matrix, self.controls_matrix = self.planner.solve(
             current_state=self.state,
             current_linear_velocity=self.linear_velocity,
@@ -157,7 +156,7 @@ class EgoAgent(Agent):
             angular_velocity_bounds=self.angular_velocity_bounds,
             linear_acceleration_bounds=self.linear_acceleration_bounds,
             angular_acceleration_bounds=self.angular_acceleration_bounds,
-            inflation_radius=(self.geometry.radius + 0.35),
+            inflation_radius=(self.geometry.radius + 0.1),
             obstacles=obstacles if self.avoid_obstacles else None,
         )
         self.geometry.location = self.state[:2]
