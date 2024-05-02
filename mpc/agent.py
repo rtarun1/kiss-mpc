@@ -26,8 +26,8 @@ class Agent(ABC):
         linear_acceleration_bounds: Tuple[float, float],
         angular_acceleration_bounds: Tuple[float, float],
         left_right_lane_bounds: Tuple[float, float],
-        goal_position: Tuple[float, float] | None = None,
-        goal_orientation: float | None = None,
+        goal_position: Tuple[float, float]  = None,
+        goal_orientation: float  = None,
         use_warm_start: bool = False,
     ):
         assert horizon > 0, "Horizon must be greater than 0"
@@ -38,7 +38,7 @@ class Agent(ABC):
 
         self.avoid_obstacles = avoid_obstacles
 
-        self.initial_state = np.array([*self.geometry.location, initial_orientation])
+        self.initial_state = np.array([*initial_position, initial_orientation])
         self.goal_state = (
             np.array([*goal_position, goal_orientation])
             if goal_position
@@ -73,8 +73,8 @@ class Agent(ABC):
 
         self.use_warm_start = use_warm_start
 
-    def update_goal(self, goal_position: Tuple[float, float], goal_orientation: float):
-        self.goal_state = np.array([*goal_position, goal_orientation])
+    def update_goal(self, goal: np.ndarray):
+        self.goal_state = goal if (goal is not None) else self.initial_state
 
     @property
     def state(self):
@@ -86,7 +86,7 @@ class Agent(ABC):
 
     @property
     def at_goal(self):
-        return self.geometry.calculate_distance(self.goal_state) - 1 <= 0
+        return self.geometry.calculate_distance(self.goal_state) - 0.1 <= 0
 
     def reset(self, matrices_only: bool = False, to_initial_state: bool = True):
         self.states_matrix = np.tile(
@@ -116,8 +116,8 @@ class EgoAgent(Agent):
         linear_acceleration_bounds: Tuple[float, float] = (-5, 5),
         angular_acceleration_bounds: Tuple[float, float] = (-10, 10),
         left_right_lane_bounds: Tuple[float, float] = (-1000, 1000),
-        goal_position: Tuple[float, float] | None = None,
-        goal_orientation: float | None = None,
+        goal_position: Tuple[float, float]  = None,
+        goal_orientation: float  = None,
         use_warm_start: bool = False,
     ):
         super().__init__(
