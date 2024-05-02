@@ -19,13 +19,13 @@ class Geometry(ABC):
 
     @abstractmethod
     def calculate_distance(
-        self, distance_to: Tuple, custom_self_location: Tuple | None = None
+        self, distance_to: Tuple, custom_self_location: Tuple = None
     ) -> float:
         raise NotImplementedError
 
     @abstractmethod
     def calculate_symbolic_distance(
-        self, distance_to: ca.MX, custom_self_location: Tuple | None = None
+        self, distance_to: ca.MX, custom_self_location: Tuple = None
     ) -> ca.MX:
         raise NotImplementedError
 
@@ -52,7 +52,7 @@ class Polygon(Geometry):
         self.vertices += value - self.location
 
     def calculate_distance(
-        self, distance_to: Tuple, custom_self_location: Tuple | None = None
+        self, distance_to: Tuple, custom_self_location: Tuple = None
     ) -> float:
         # Calculate the distance from the point (distance_to) to the polygon
         if custom_self_location is not None:
@@ -82,7 +82,7 @@ class Polygon(Geometry):
         return np.sqrt(distance) * s
 
     def calculate_symbolic_distance(
-        self, distance_to: ca.MX, custom_self_location: Tuple | None = None
+        self, distance_to: ca.MX, custom_self_location: Tuple  = None
     ) -> ca.MX:
         # Calculate the distance from the point (distance_to) to the polygon
         if custom_self_location is not None:
@@ -142,7 +142,7 @@ class Circle(Geometry):
         self.center += np.array(value) - self.center
 
     def calculate_distance(
-        self, distance_to: Tuple, custom_self_location: Tuple | None = None
+        self, distance_to: Tuple, custom_self_location: Tuple  = None
     ) -> float:
         if custom_self_location is not None:
             center = np.array(custom_self_location)
@@ -151,7 +151,7 @@ class Circle(Geometry):
         return np.linalg.norm(np.array(distance_to[:2]) - center) - self.radius
 
     def calculate_symbolic_distance(
-        self, distance_to: ca.MX, custom_self_location: Tuple | None = None
+        self, distance_to: ca.MX, custom_self_location: Tuple  = None
     ) -> ca.MX:
         if custom_self_location is not None:
             center = np.array(custom_self_location)
