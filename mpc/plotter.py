@@ -89,8 +89,8 @@ class Plotter:
         )[0]
 
         self.states_plot = axes.plot(
-            self.agent.states_matrix[0, 1:],
-            self.agent.states_matrix[1, 1:],
+            self.agent.states_matrix[0, 1:] ,
+            self.agent.states_matrix[1, 1:] ,
             marker=".",
             color="blue",
             # s=1.5,
@@ -163,8 +163,8 @@ class Plotter:
     def recenter_plot(self):
         # Center plot to agent
         axes = plt.gca()
-        axes.set_xlim(self.agent.state[0] - 10, self.agent.state[0] + 10)
-        axes.set_ylim(self.agent.state[1] - 10, self.agent.state[1] + 10)
+        axes.set_xlim(self.agent.state[0] - 4, self.agent.state[0] + 4)
+        axes.set_ylim(self.agent.state[1] - 4, self.agent.state[1] + 4)
 
     def save_frame(self):
         # Save frame to video
@@ -190,8 +190,8 @@ class Plotter:
             obstacle.geometry.update_patch(self.obstacle_patches[index])
 
         self.states_plot.set_data(
-            self.agent.states_matrix[0, 1:], self.agent.states_matrix[1, 1:]
-        )
+            self.agent.states_matrix[0, 1:] , self.agent.states_matrix[1, 1:]
+            )
 
         for obstacle_plot, obstacle in zip(
             self.dynamic_obstacle_plots, self.dynamic_obstacles
@@ -250,9 +250,9 @@ class Plotter:
             )
 
         for index, obstacle in enumerate(self.static_obstacles):
-            self.static_obstacle_ids[index].set_position(
-                (obstacle.state[0], obstacle.state[1])
-            )
+            # self.static_obstacle_ids[index].set_position(
+            #     (obstacle.state[0], obstacle.state[1])
+            # )
             obstacle.geometry.update_patch(self.obstacle_patches[index])
 
     def close(self):

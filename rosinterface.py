@@ -25,15 +25,17 @@ class ROSInterface:
         self.environment = ROSEnvironment(
             agent=EgoAgent(
                 id=1,
-                radius=1,
+                radius=0.4,
                 initial_position=(0, 0),
                 initial_orientation=np.deg2rad(90),
-                horizon=20,
+                horizon=30,
+                # planning_time_step=0.5,
                 use_warm_start=True,
                 linear_velocity_bounds=(-0.26,0.26),
                 angular_velocity_bounds=(-5,5),
-                linear_acceleration_bounds=(-0.01,0.01),
-                angular_acceleration_bounds=(-5,5),
+                # linear_acceleration_bounds=(-0.01,0.01),
+                # angular_acceleration_bounds=(-5,5),
+                sensor_radius=5,
             ),
             static_obstacles=[],
             dynamic_obstacles=[],
@@ -69,10 +71,10 @@ class ROSInterface:
 
     def odom_callback(self, message: Odometry):
         # Update the agent's state with the current position and orientation
-        self.environment.agent.initial_state = np.array(
+        self.environment.agent.states_matrix[:,1] = np.array(
             [message.pose.pose.position.x, message.pose.pose.position.y, euler_from_quaternion([message.pose.pose.orientation.x,message.pose.pose.orientation.y,message.pose.pose.orientation.z,message.pose.pose.orientation.w])[2]]
         )
-        self.environment.agent.reset(matrices_only=True)
+        # self.environment.agent.reset(matrices_only=True)
 
     def obstacle_callback(self, message: ObstacleArrayMsg):
         static_obstacle_list = []
