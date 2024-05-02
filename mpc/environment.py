@@ -35,7 +35,11 @@ class Environment:
 
     @property
     def current_waypoint(self):
-        return self.waypoints[self.waypoint_index] if self.waypoint_index < len(self.waypoints) else None
+        return (
+            self.waypoints[self.waypoint_index]
+            if self.waypoint_index < len(self.waypoints)
+            else None
+        )
 
     @property
     def final_goal_reached(self):
@@ -74,6 +78,7 @@ class Environment:
         for obstacle in self.dynamic_obstacles:
             obstacle.reset()
 
+
 class LocalEnvironment(Environment):
     def __init__(
         self,
@@ -92,19 +97,22 @@ class LocalEnvironment(Environment):
             plot is True if save_video else True
         ), "Cannot save video without plotting"
         self.save_video = save_video
-    def loop(self, max_timesteps: int = 10000):
-        self.reset()
         if self.plot:
-            plotter = Plotter(
+            self.plotter = Plotter(
                 agent=self.agent,
                 static_obstacles=self.static_obstacles,
                 dynamic_obstacles=self.dynamic_obstacles,
                 video_path=self.results_path if self.save_video else None,
+                waypoints=self.waypoints,
             )
+
+    def loop(self, max_timesteps: int = 10000):
+        self.reset()
+
         while (not self.final_goal_reached) and max_timesteps > 0:
             self.step()
             if self.plot:
-                plotter.update_plot()
+                self.plotter.update_plot(self.waypoints)
             max_timesteps -= 1
             print(
                 f"Step {len(self.rollout_times)}, Time: {self.rollout_times[-1] * 1000:.2f} ms"
@@ -113,9 +121,10 @@ class LocalEnvironment(Environment):
         # Print metrics excluding first rollout
         print(f"Average rollout time: {time_array[1:].mean() * 1000:.2f} ms")
         if self.plot:
-            plotter.close()
+            self.plotter.close()
             if self.save_video:
-                plotter.collapse_frames_to_video()
+                self.plotter.collapse_frames_to_video()
+
 
 class ROSEnvironment(Environment):
     def __init__(
@@ -146,7 +155,6 @@ class ROSEnvironment(Environment):
             )
 
     def step(self):
-        
         self.agent.step(
             obstacles=[
                 obstacle
