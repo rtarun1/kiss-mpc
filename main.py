@@ -9,16 +9,16 @@ from mpc.obstacle import StaticObstacle
 agent = EgoAgent(
     id=1,
     radius=0.2,
-    initial_position=(0.5, 0.5),
+    initial_position=(1.3, -1.5),
     initial_orientation=np.deg2rad(90),
-    horizon=3,
+    horizon=30,
     use_warm_start=True,
-    planning_time_step=0.5,
+    planning_time_step=0.2,
     linear_velocity_bounds=(-0.26, 0.26),
-    angular_velocity_bounds=(-5, 5),
+    angular_velocity_bounds=(-1.82, 1.82),
     linear_acceleration_bounds=(-0.1, 0.1),
-    angular_acceleration_bounds=(-5, 5),
-    sensor_radius=10,
+    angular_acceleration_bounds=(-0.1, 0.1),
+    sensor_radius=20,
 )
 
 # static_obstacle_rectangle = StaticObstacle(
@@ -200,7 +200,8 @@ environment = LocalEnvironment(
     dynamic_obstacles=[
         # dynamic_obstacle,
     ],
-    waypoints=[(-2.47, 2.41, np.deg2rad(90)), (-5.47, 1.41, np.deg2rad(90))],
+    # waypoints=[(-2.47, 2.41, np.deg2rad(90)), (-5.47, 1.41, np.deg2rad(90))],
+    waypoints=[(-2.47, 2.41, np.deg2rad(90))],
     # save_video=True,
 )
 environment.loop()

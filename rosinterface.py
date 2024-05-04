@@ -27,57 +27,180 @@ class ROSInterface:
         self.environment = ROSEnvironment(
             agent=EgoAgent(
                 id=1,
-                radius=0.4,
+                radius=0.3,
                 initial_position=(0, 0),
                 initial_orientation=np.deg2rad(90),
-                horizon=30,
-                # planning_time_step=0.5,
+                horizon=20,
                 use_warm_start=True,
-                planning_time_step=0.5,
+                planning_time_step=0.2,
                 linear_velocity_bounds=(-0.26, 0.26),
-                angular_velocity_bounds=(-5, 5),
+                angular_velocity_bounds=(-1.82, 1.82),
                 linear_acceleration_bounds=(-0.1, 0.1),
-                angular_acceleration_bounds=(-5, 5),
+                angular_acceleration_bounds=(-0.1, 0.1),
+                sensor_radius=20,
             ),
             static_obstacles=[],
             dynamic_obstacles=[],
             waypoints=[],
+            plot=False,
         )
 
         rospy.init_node("ros_mpc_interface")
 
-        rospy.Subscriber("/people", People, self.people_callback)
-        rospy.Subscriber("/move_base/GlobalPlanner/plan", Path, self.waypoint_callback)
-        rospy.Subscriber("/odom", Odometry, self.odom_callback)
+        # rospy.Subscriber("/people", People, self.people_callback)
         rospy.Subscriber(
-            "/costmap_converter/costmap_obstacles",
-            ObstacleArrayMsg,
-            self.obstacle_callback,
+            "/move_base/GlobalPlanner/plan",
+            Path,
+            self.waypoint_callback,
         )
+        # rospy.Subscriber(
+        #     "/costmap_converter/costmap_obstacles",
+        #     ObstacleArrayMsg,
+        #     self.obstacle_callback,
+        # )
+        rospy.Subscriber("/odom", Odometry, self.odom_callback, queue_size=1)
 
         self.velocity_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
 
+        # polygons = [
+        #     [
+        #         (-2.875, 0.025000037625432014),
+        #         (-2.575000047683716, -0.42499998211860657),
+        #         (-2.7249999046325684, 0.3750000298023224),
+        #         # (-2.875, 0.025000037625432014),
+        #     ],
+        #     [
+        #         (-2.674999952316284, 0.3750000298023224),
+        #         (-2.2750000953674316, 1.125),
+        #         # (-2.674999952316284, 0.3750000298023224),
+        #     ],
+        #     [
+        #         (-2.625, -0.3749999701976776),
+        #         (-2.2249999046325684, -1.125),
+        #         # (-2.625, -0.3749999701976776),
+        #     ],
+        #     [
+        #         (-2.2249999046325684, 1.125),
+        #         (-1.875, 1.7750000953674316),
+        #         # (-2.2249999046325684, 1.125),
+        #     ],
+        #     [
+        #         (-2.174999952316284, -1.225000023841858),
+        #         (-1.774999976158142, -1.875),
+        #         (-2.174999952316284, -1.125),
+        #         # (-2.174999952316284, -1.225000023841858),
+        #     ],
+        #     [
+        #         (-1.875, 1.8250000476837158),
+        #         (-1.225000023841858, 2.174999952316284),
+        #         (-1.6749999523162842, 2.125),
+        #         # (-1.875, 1.8250000476837158),
+        #     ],
+        #     [
+        #         (-1.774999976158142, -1.9249999523162842),
+        #         (-1.1749999523162842, -2.375),
+        #         (-1.3249999284744263, -1.9249999523162842),
+        #         # (-1.774999976158142, -1.9249999523162842),
+        #     ],
+        #     [
+        #         (-1.1749999523162842, -2.325000047683716),
+        #         (-1.0749999284744263, -2.5250000953674316),
+        #         (-0.5249999761581421, -2.5250000953674316),
+        #         # (-1.1749999523162842, -2.325000047683716),
+        #     ],
+        #     [
+        #         (-1.1749999523162842, -1.125),
+        #         (-0.9749999642372131, -1.1749999523162842),
+        #         (-0.9249999523162842, -0.9249999523162842),
+        #         (-1.1749999523162842, -0.9249999523162842),
+        #         # (-1.1749999523162842, -1.125),
+        #     ],
+        #     [
+        #         (-1.1749999523162842, 0.025000037625432014),
+        #         (-0.9249999523162842, -0.07499996572732925),
+        #         (-0.9249999523162842, 0.2250000387430191),
+        #         # (-1.1749999523162842, 0.025000037625432014),
+        #     ],
+        #     [
+        #         (-1.1749999523162842, 1.125),
+        #         (-0.9749999642372131, 1.0250000953674316),
+        #         (-0.824999988079071, 1.1750000715255737),
+        #         (-1.024999976158142, 1.3250000476837158),
+        #         # (-1.1749999523162842, 1.125),
+        #     ],
+        #     [
+        #         (-0.875, 0.12500004470348358),
+        #         # (-0.875, 0.12500004470348358),
+        #     ],
+        #     [
+        #         (-0.47499996423721313, -2.5250000953674316),
+        #         (0.2250000387430191, -2.4749999046325684),
+        #         # (-0.47499996423721313, -2.5250000953674316),
+        #     ],
+        #     [
+        #         (-0.07499996572732925, -1.125),
+        #         (0.17500004172325134, -1.1749999523162842),
+        #         (0.17500004172325134, -0.9249999523162842),
+        #         (0.025000037625432014, -0.875),
+        #         # (-0.07499996572732925, -1.125),
+        #     ],
+        #     [
+        #         (-0.07499996572732925, 0.025000037625432014),
+        #         (0.17500004172325134, -0.07499996572732925),
+        #         (0.2250000387430191, 0.12500004470348358),
+        #         (0.025000037625432014, 0.2250000387430191),
+        #         # (-0.07499996572732925, 0.025000037625432014),
+        #     ],
+        #     [
+        #         (-0.07499996572732925, 1.0750000476837158),
+        #         (0.17500004172325134, 0.9750000238418579),
+        #         (0.27500003576278687, 1.1750000715255737),
+        #         (0.025000037625432014, 1.2750000953674316),
+        #         # (-0.07499996572732925, 1.0750000476837158),
+        #     ],
+        #     [
+        #         (0.2250000387430191, 1.225000023841858),
+        #         # (0.2250000387430191, 1.225000023841858),
+        #     ],
+        #     [
+        #         (0.27500003576278687, -2.5250000953674316),
+        #         (0.6250000596046448, -2.4749999046325684),
+        #         # (0.27500003576278687, -2.5250000953674316),
+        #     ],
+        # ]
+
+        # self.polygon_obstacles = [
+        #     StaticObstacle(id=i, geometry=Polygon(vertices=vertices))
+        #     for i, vertices in enumerate(polygons)
+        # ]
+
+        rospy.spin()
+
     def run(self):
-        rate = rospy.Rate(10)
+        pass
+        # rate = rospy.Rate(1)
 
-        while not rospy.is_shutdown():
-            self.environment.step()
-            print(self.environment.agent.goal_state, self.environment.agent.state)
-            print(
-                "Velocity",
-                self.environment.agent.linear_velocity,
-                self.environment.agent.angular_velocity,
-            )
+        # # self.environment.static_obstacles = self.polygon_obstacles
+        # # self.environment.plotter.update_static_obstacles(self.polygon_obstacles)
 
-            # Publish the control command
-            control_command = Twist()
-            control_command.linear.x = self.environment.agent.linear_velocity
-            control_command.angular.z = self.environment.agent.angular_velocity
-            print(control_command.linear.x, control_command.angular.z)
+        # while not rospy.is_shutdown():
+        #     self.environment.step()
+        #     # print(self.environment.agent.goal_state, self.environment.agent.state)
+        #     # print(
+        #     #     "Velocity",
+        #     #     self.environment.agent.linear_velocity,
+        #     #     self.environment.agent.angular_velocity,
+        #     # )
 
-            self.velocity_publisher.publish(control_command)
+        #     # Publish the control command
+        #     control_command = Twist()
+        #     control_command.linear.x = self.environment.agent.linear_velocity
+        #     control_command.angular.z = self.environment.agent.angular_velocity
+        #     print(control_command.linear.x, control_command.angular.z)
 
-            rate.sleep()
+        #     self.velocity_publisher.publish(control_command)
+
+        #     rate.sleep()
 
     def odom_callback(self, message: Odometry):
         # Update the agent's state with the current position and orientation
@@ -95,7 +218,22 @@ class ROSInterface:
                 )[2],
             ]
         )
-        # self.environment.agent.reset(matrices_only=True)
+        self.environment.agent.reset(matrices_only=True)
+        self.environment.step()
+        print(self.environment.agent.goal_state, self.environment.agent.state)
+        print(
+            "Velocity",
+            self.environment.agent.linear_velocity,
+            self.environment.agent.angular_velocity,
+        )
+
+        # Publish the control command
+        control_command = Twist()
+        control_command.linear.x = self.environment.agent.linear_velocity
+        control_command.angular.z = self.environment.agent.angular_velocity
+        print(control_command.linear.x, control_command.angular.z)
+
+        self.velocity_publisher.publish(control_command)
 
     def obstacle_callback(self, message: ObstacleArrayMsg):
         static_obstacle_list = []
@@ -103,10 +241,13 @@ class ROSInterface:
         for obstacle in message.obstacles:
             obstacle: ObstacleMsg
             # Create a static obstacle for each polygon
-            points = [
-                (point.x, point.y)
-                for point in cast(List[Point32], obstacle.polygon.points[:-1])
-            ]
+            if len(obstacle.polygon.points[:-1]) > 1:
+                points = [
+                    (point.x, point.y)
+                    for point in cast(List[Point32], obstacle.polygon.points[:-1])
+                ]
+            else:
+                continue
             static_obstacle_list.append(
                 StaticObstacle(
                     id=obstacle.id,
@@ -118,7 +259,7 @@ class ROSInterface:
             )
 
         self.environment.static_obstacles = static_obstacle_list
-        self.environment.plotter.update_static_obstacles(static_obstacle_list)
+        # self.environment.plotter.update_static_obstacles(static_obstacle_list)
 
     def people_callback(self, message: People):
         # Create a dynamic obstacle for each person
@@ -167,6 +308,7 @@ class ROSInterface:
         self.environment.waypoints = np.array(waypoints)
         self.environment.waypoint_index = 0
         self.environment.agent.update_goal(self.environment.current_waypoint)
+        # self.environment.plotter.update_goal(self.environment.waypoints)
 
 
 if __name__ == "__main__":

@@ -155,14 +155,7 @@ class ROSEnvironment(Environment):
             )
 
     def step(self):
-        self.agent.step(
-            obstacles=[
-                obstacle
-                for obstacle in self.obstacles
-                if obstacle.calculate_distance(self.agent.state)
-                <= self.agent.sensor_radius
-            ]
-        )
+        self.agent.step(obstacles=self.obstacles)
 
         if self.plot:
             self.plotter.update_plot(self.waypoints)

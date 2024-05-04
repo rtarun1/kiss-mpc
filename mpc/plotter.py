@@ -84,13 +84,13 @@ class Plotter:
             self.agent.goal_state[0], self.agent.goal_state[1], marker="x", color="r"
         )[0]
 
-        self.final_goal_plot = axes.plot(
-            self.agent.goal_state[0], self.agent.goal_state[1], marker="x", color="g"
-        )[0]
+        # self.final_goal_plot = axes.plot(
+        #     self.agent.goal_state[0], self.agent.goal_state[1], marker="x", color="g"
+        # )[0]
 
         self.states_plot = axes.plot(
-            self.agent.states_matrix[0, 1:] ,
-            self.agent.states_matrix[1, 1:] ,
+            self.agent.states_matrix[0, 1:],
+            self.agent.states_matrix[1, 1:],
             marker=".",
             color="blue",
             # s=1.5,
@@ -132,13 +132,13 @@ class Plotter:
             fontsize=12,
             color="black",
         )
-        self.final_goal_plot_text = axes.text(
-            self.agent.goal_state[0],
-            self.agent.goal_state[1],
-            f"({self.agent.goal_state[0]:.2f}, {self.agent.goal_state[1]:.2f})",
-            fontsize=12,
-            color="black",
-        )
+        # self.final_goal_plot_text = axes.text(
+        #     self.agent.goal_state[0],
+        #     self.agent.goal_state[1],
+        #     f"({self.agent.goal_state[0]:.2f}, {self.agent.goal_state[1]:.2f})",
+        #     fontsize=12,
+        #     color="black",
+        # )
         self.recenter_plot()
 
     def update_goal(self, waypoints):
@@ -149,9 +149,9 @@ class Plotter:
         self.goal_plot_text.set_text(
             f"({self.agent.goal_state[0]:.2f}, {self.agent.goal_state[1]:.2f})"
         )
-        if len(waypoints) > 0:
-            self.final_goal_plot.set_data(waypoints[-1][0], waypoints[-1][1])
-            self.final_goal_plot_text.set_position((waypoints[-1][0], waypoints[-1][1]))
+        # if len(waypoints) > 0:
+        #     self.final_goal_plot.set_data(waypoints[-1][0], waypoints[-1][1])
+        #     self.final_goal_plot_text.set_position((waypoints[-1][0], waypoints[-1][1]))
 
     @property
     def obstacles(self):
@@ -187,8 +187,8 @@ class Plotter:
             obstacle.geometry.update_patch(self.obstacle_patches[index])
 
         self.states_plot.set_data(
-            self.agent.states_matrix[0, 1:] , self.agent.states_matrix[1, 1:]
-            )
+            self.agent.states_matrix[0, 1:], self.agent.states_matrix[1, 1:]
+        )
 
         for obstacle_plot, obstacle in zip(
             self.dynamic_obstacle_plots, self.dynamic_obstacles
