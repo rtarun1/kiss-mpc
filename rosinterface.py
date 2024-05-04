@@ -168,7 +168,12 @@ class ROSInterface:
         #         # (0.27500003576278687, -2.5250000953674316),
         #     ],
         # ]
-
+        static_obstacle_circle = StaticObstacle(
+            id=3,
+            geometry=Circle(center=(-2, 1), radius=0.2),
+        )
+        self.static_obstacle_list = []
+        self.static_obstacle_list.append(static_obstacle_circle)
         # self.polygon_obstacles = [
         #     StaticObstacle(id=i, geometry=Polygon(vertices=vertices))
         #     for i, vertices in enumerate(polygons)
@@ -218,6 +223,7 @@ class ROSInterface:
                 )[2],
             ]
         )
+        self.environment.static_obstacles = self.static_obstacle_list
         self.environment.agent.reset(matrices_only=True)
         self.environment.step()
         print(self.environment.agent.goal_state, self.environment.agent.state)
@@ -282,12 +288,23 @@ class ROSInterface:
 
     def waypoint_callback(self, message: Path):
         # Update the agent's goal with the waypoint position
-        # if message.header.seq == 0:
-        print("Updating waypoints")
-        # waypoints = [
-        #     (pose.pose.position.x, pose.pose.position.y, euler_from_quaternion([pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w])[2])
-        #     for pose in message.poses[::10]
-        # ]
+        if message.header.seq == 0:
+            print("Updating waypoints")
+            waypoints = [
+                (
+                    pose.pose.position.x,
+                    pose.pose.position.y,
+                    euler_from_quaternion(
+                        [
+                            pose.pose.orientation.x,
+                            pose.pose.orientation.y,
+                            pose.pose.orientation.z,
+                            pose.pose.orientation.w,
+                        ]
+                    )[2],
+                )
+                for pose in message.poses[::20]
+            ]
         waypoints = []
         # orientation_euler = euler_from_quaternion((0, 0, message.poses[-1].pose.orientation, 0))
         waypoints.append(
