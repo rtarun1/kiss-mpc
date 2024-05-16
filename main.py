@@ -194,14 +194,14 @@ environment = LocalEnvironment(
         # static_obstacle_circle,
         # static_obstacle_circle_2,
         # static_obstacle_circle_3,
-        # static_polygonal_obstacle
-        *polygon_obstacles
+        static_polygonal_obstacle
+        # *polygon_obstacles
     ],
     dynamic_obstacles=[
         # dynamic_obstacle,
     ],
     # waypoints=[(-2.47, 2.41, np.deg2rad(90)), (-5.47, 1.41, np.deg2rad(90))],
-    waypoints=[(-2.47, 2.41, np.deg2rad(90))],
+    waypoints=[(10, 23, np.deg2rad(90))],
     # save_video=True,
 )
 environment.loop()

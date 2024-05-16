@@ -155,8 +155,20 @@ class ROSEnvironment(Environment):
             )
 
     def step(self):
-        self.agent.step(obstacles=self.obstacles)
-
+        t1 = time.perf_counter()
+        obstacles_dict = {
+            obstacle.calculate_distance(self.agent.state): obstacle
+            for obstacle in self.obstacles
+        }
+        filtered_obstacles = [
+            obstacles_dict[distance]
+            for distance in sorted(obstacles_dict.keys())
+            if distance <= self.agent.sensor_radius
+        ]
+        # print("Number of Obstacles:", len(filtered_obstacles))
+        self.agent.step(obstacles=filtered_obstacles[:6])
+        t2 = time.perf_counter()
+        print("Rollout Time:", t2 - t1)
         if self.plot:
             self.plotter.update_plot(self.waypoints)
 
