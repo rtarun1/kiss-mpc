@@ -72,6 +72,7 @@ class Agent(ABC):
         self.planner = MotionPlanner(time_step=self.time_step, horizon=self.horizon)
 
         self.use_warm_start = use_warm_start
+        self.goal_radius = 0.5
 
     def update_goal(self, goal: np.ndarray):
         self.goal_state = goal if (goal is not None) else self.initial_state
@@ -86,7 +87,7 @@ class Agent(ABC):
 
     @property
     def at_goal(self):
-        return self.geometry.calculate_distance(self.goal_state) - 0.1 <= 0
+        return self.geometry.calculate_distance(self.goal_state) - self.goal_radius <= 0
 
     def reset(self, matrices_only: bool = False, to_initial_state: bool = True):
         self.states_matrix = np.tile(

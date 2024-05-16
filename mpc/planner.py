@@ -90,6 +90,9 @@ class MotionPlanner:
             self.symbolic_controls_matrix.reshape((-1, 1)),
         )
 
+    def update_orientation_weight(self, orientation_weight: float):
+        self.weight_matrix = ca.DM(ca.diagcat(100, 100, orientation_weight))
+
     def _get_symbolic_goal_cost(self) -> ca.MX:
         error = cast(
             ca.MX,

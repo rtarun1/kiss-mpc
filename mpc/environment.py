@@ -155,6 +155,13 @@ class ROSEnvironment(Environment):
             )
 
     def step(self):
+        if self.waypoint_index >= len(self.waypoints) - 2:
+            self.agent.planner.update_orientation_weight(100)
+            print("Updating Orientation")
+        else:
+            self.agent.planner.update_orientation_weight(0)
+        if self.waypoint_index == len(self.waypoints) - 1:
+            self.agent.goal_radius = 0.1
         t1 = time.perf_counter()
         obstacles_dict = {
             obstacle.calculate_distance(self.agent.state): obstacle
@@ -166,6 +173,7 @@ class ROSEnvironment(Environment):
             if distance <= self.agent.sensor_radius
         ]
         # print("Number of Obstacles:", len(filtered_obstacles))
+
         self.agent.step(obstacles=filtered_obstacles[:6])
         t2 = time.perf_counter()
         print("Rollout Time:", t2 - t1)
@@ -173,6 +181,7 @@ class ROSEnvironment(Environment):
             self.plotter.update_plot(self.waypoints)
 
         if self.agent.at_goal and not self.final_goal_reached:
+
             print("Reached waypoint", self.waypoint_index + 1)
             self.waypoint_index += 1
             self.agent.update_goal(self.current_waypoint)
