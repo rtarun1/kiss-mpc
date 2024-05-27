@@ -65,6 +65,8 @@ class MotionPlanner:
         # Weight matrix for goal cost
         self.weight_matrix = ca.DM(ca.diagcat(100, 100, 0))
 
+        self.angular_acceleration_weight = ca.DM(30)
+        self.linear_acceleration_weight = ca.DM(50)
         # Obstacle cost weight
         # self.obstacle_cost_weight = ca.DM(10000)
 
@@ -115,7 +117,16 @@ class MotionPlanner:
         return cast(
             ca.MX,
             ca.sum1(ca.sum2(squared_angular_acceleration)),
+        ) * self.angular_acceleration_weight
+    
+    def _get_symbolic_linear_acceleration_cost(self) -> ca.MX:
+        squared_linear_acceleration = cast(
+            ca.MX, self.symbolic_controls_matrix[0, :] ** 2
         )
+        return cast(
+            ca.MX,
+            ca.sum1(ca.sum2(squared_linear_acceleration)),
+        ) * self.linear_acceleration_weight
 
     # def _get_symbolic_obstacle_cost(
     #     self, visible_obstacles: List[Obstacle], inflation_radius: float
@@ -147,6 +158,7 @@ class MotionPlanner:
         return (
             self._get_symbolic_goal_cost()
             + self._get_symbolic_angular_acceleration_cost()
+            + self._get_symbolic_linear_acceleration_cost()
             # + self._get_symbolic_obstacle_cost(visible_obstacles, inflation_radius)
         )
 

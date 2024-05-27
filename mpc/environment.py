@@ -155,33 +155,54 @@ class ROSEnvironment(Environment):
             )
 
     def step(self):
-        if self.waypoint_index >= len(self.waypoints) - 2:
-            self.agent.planner.update_orientation_weight(100)
-            print("Updating Orientation")
-        else:
-            self.agent.planner.update_orientation_weight(0)
         if self.waypoint_index == len(self.waypoints) - 1:
+            print("Heading for final goal")
             self.agent.goal_radius = 0.1
+            # self.agent.planner.update_orientation_weight(100)
+        else:
+            self.agent.goal_radius = 0.5
+            # self.agent.planner.update_orientation_weight(0)
+
+        # if self.final_goal_reached:
+        #     print("Final Goal Reached")
+        #     self.agent.planner.update_orientation_weight(100)
+        # else:
+        #     self.agent.planner.update_orientation_weight(0)
+        
         t1 = time.perf_counter()
-        obstacles_dict = {
+        static_obstacles_dict = {
             obstacle.calculate_distance(self.agent.state): obstacle
-            for obstacle in self.obstacles
+            for obstacle in self.static_obstacles
         }
-        filtered_obstacles = [
-            obstacles_dict[distance]
-            for distance in sorted(obstacles_dict.keys())
+        filtered_static_obstacles = [
+            static_obstacles_dict[distance]
+            for distance in sorted(static_obstacles_dict.keys())
             if distance <= self.agent.sensor_radius
         ]
-        # print("Number of Obstacles:", len(filtered_obstacles))
+        dynamic_obstacles_dict = {
+            obstacle.calculate_distance(self.agent.state): obstacle
+            for obstacle in self.dynamic_obstacles
+        }
+        filtered_dynamic_obstacles = [
+            dynamic_obstacles_dict[distance]
+            for distance in sorted(dynamic_obstacles_dict.keys())
+            if distance <= self.agent.sensor_radius
+        ]
+        print("Number of Dyn Obstacles:", len(filtered_dynamic_obstacles))
+        obstacles = filtered_static_obstacles[:4] + filtered_dynamic_obstacles
 
-        self.agent.step(obstacles=filtered_obstacles[:6])
+        self.agent.step(obstacles=obstacles)
         t2 = time.perf_counter()
         print("Rollout Time:", t2 - t1)
+
         if self.plot:
             self.plotter.update_plot(self.waypoints)
+            self.plotter.update_static_obstacles(filtered_dynamic_obstacles)
+
+        print("Current Waypoint",self.current_waypoint)
+        print("Waypoints", self.waypoints)
 
         if self.agent.at_goal and not self.final_goal_reached:
-
             print("Reached waypoint", self.waypoint_index + 1)
             self.waypoint_index += 1
             self.agent.update_goal(self.current_waypoint)

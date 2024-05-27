@@ -18,18 +18,24 @@ class DynamicObstacle(Obstacle):
         angular_velocity: float = 0,
         horizon: int = 50,  # Make sure this is equal to the horizon of the ego agent
     ):
-        super().__init__(id=id, geometry=Circle(center=position, radius=1))
+        super().__init__(id=id, geometry=Circle(center=position, radius=0.3))
         self.linear_velocity = linear_velocity
+        self.orientation = orientation
         self.angular_velocity = angular_velocity
         self.horizon = horizon
         self.states_matrix = self._get_predicted_states_matrix(horizon)
 
+    @property
+    def state(self):
+        return np.array(self.geometry.location + (self.orientation,))
+
     def _predict_state(self, state: np.ndarray):
+        dt = 0.1
         return np.array(
             [
-                state[0] + self.linear_velocity * np.cos(np.deg2rad(state[2])),
-                state[1] + self.linear_velocity * np.sin(np.deg2rad(state[2])),
-                state[2] + self.angular_velocity,
+                state[0] + self.linear_velocity * np.cos(np.deg2rad(state[2])) * dt,
+                state[1] + self.linear_velocity * np.sin(np.deg2rad(state[2])) * dt,
+                state[2] + self.angular_velocity * dt,
             ]
         )
 
@@ -66,9 +72,9 @@ class DynamicObstacle(Obstacle):
             ),
         )
 
-    @property
-    def state(self):
-        return self.states_matrix[:, 0]
+    # @property
+    # def state(self):
+    #     return self.states_matrix[:, 0]
 
 
 class SimulatedDynamicObstacle(Obstacle):

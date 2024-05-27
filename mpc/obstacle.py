@@ -18,7 +18,7 @@ class Obstacle(ABC):
 
     @property
     def state(self):
-        return self.geometry.location
+        return np.array(self.geometry.location + (0,))
 
     @abstractmethod
     def calculate_matrix_distance(self, states_matrix: np.ndarray):

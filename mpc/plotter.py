@@ -160,8 +160,8 @@ class Plotter:
     def recenter_plot(self):
         # Center plot to agent
         axes = plt.gca()
-        axes.set_xlim(self.agent.state[0] - 5, self.agent.state[0] + 5)
-        axes.set_ylim(self.agent.state[1] - 5, self.agent.state[1] + 5)
+        axes.set_xlim(self.agent.state[0] - 3, self.agent.state[0] + 3)
+        axes.set_ylim(self.agent.state[1] - 3, self.agent.state[1] + 3)
 
     def save_frame(self):
         # Save frame to video
@@ -180,29 +180,29 @@ class Plotter:
             f"Agent ({self.agent.state[0]:.2f}, {self.agent.state[1]:.2f})"
         )
 
-        for index, obstacle in enumerate(self.dynamic_obstacles):
-            self.dynamic_obstacle_ids[index].set_position(
-                (obstacle.state[0], obstacle.state[1])
-            )
-            obstacle.geometry.update_patch(self.obstacle_patches[index])
+        # for index, obstacle in enumerate(self.dynamic_obstacles):
+        #     self.dynamic_obstacle_ids[index].set_position(
+        #         (obstacle.state[0], obstacle.state[1])
+        #     )
+        #     obstacle.geometry.update_patch(self.obstacle_patches[index])
 
         self.states_plot.set_data(
             self.agent.states_matrix[0, 1:], self.agent.states_matrix[1, 1:]
         )
 
-        for obstacle_plot, obstacle in zip(
-            self.dynamic_obstacle_plots, self.dynamic_obstacles
-        ):
-            # obstacle_plot.set_data(
-            #     x=obstacle.state[0],
-            #     y=obstacle.state[1],
-            #     dx=obstacle.linear_velocity * np.cos(obstacle.state[2]),
-            #     dy=obstacle.linear_velocity * np.sin(obstacle.state[2]),
-            # )
-            obstacle_plot.set_data(
-                obstacle.states_matrix[0, 1:],
-                obstacle.states_matrix[1, 1:],
-            )
+        # for obstacle_plot, obstacle in zip(
+        #     self.dynamic_obstacle_plots, self.dynamic_obstacles
+        # ):
+        #     # obstacle_plot.set_data(
+        #     #     x=obstacle.state[0],
+        #     #     y=obstacle.state[1],
+        #     #     dx=obstacle.linear_velocity * np.cos(obstacle.state[2]),
+        #     #     dy=obstacle.linear_velocity * np.sin(obstacle.state[2]),
+        #     # )
+        #     obstacle_plot.set_data(
+        #         obstacle.states_matrix[0, 1:],
+        #         obstacle.states_matrix[1, 1:],
+        #     )
 
         self.update_goal(waypoint)
 
