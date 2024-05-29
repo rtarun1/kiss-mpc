@@ -250,6 +250,13 @@ class Plotter:
             #     (obstacle.state[0], obstacle.state[1])
             # )
             obstacle.geometry.update_patch(self.obstacle_patches[index])
+            plt.gca().plot(
+                obstacle.states_matrix[0, 1:],
+                obstacle.states_matrix[1, 1:],
+                marker=".",
+                color="green",
+                # s=1.5,
+            )[0]
 
     def close(self):
         plt.pause(2)
