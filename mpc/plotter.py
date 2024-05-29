@@ -49,6 +49,7 @@ class Plotter:
         )
 
         self.obstacle_patches = []
+        self.obstacle_plots = []
 
         for obstacle in self.dynamic_obstacles:
             self.obstacle_patches.append(
@@ -238,25 +239,30 @@ class Plotter:
         # Remove old patches
         for patch in self.obstacle_patches:
             patch.remove()
+
+        for plot in self.obstacle_plots:
+            plot.remove()
+
         self.obstacle_patches = []
+        self.obstacle_plots = []
 
         for obstacle in self.static_obstacles:
             self.obstacle_patches.append(
                 plt.gca().add_patch(obstacle.geometry.create_patch())
             )
-
-        for index, obstacle in enumerate(self.static_obstacles):
-            # self.static_obstacle_ids[index].set_position(
-            #     (obstacle.state[0], obstacle.state[1])
-            # )
-            obstacle.geometry.update_patch(self.obstacle_patches[index])
-            plt.gca().plot(
+            self.obstacle_plots.append(plt.gca().plot(
                 obstacle.states_matrix[0, 1:],
                 obstacle.states_matrix[1, 1:],
                 marker=".",
                 color="green",
                 # s=1.5,
-            )[0]
+            )[0])
+
+        # for index, obstacle in enumerate(self.static_obstacles):
+            # self.static_obstacle_ids[index].set_position(
+            #     (obstacle.state[0], obstacle.state[1])
+            # )
+            # obstacle.geometry.update_patch(self.obstacle_patches[index])
 
     def close(self):
         plt.pause(2)

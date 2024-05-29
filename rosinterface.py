@@ -125,7 +125,7 @@ class ROSInterface:
             control_command.angular.z = self.environment.agent.angular_velocity
             print(control_command.linear.x, control_command.angular.z)
 
-            self.velocity_publisher.publish(control_command)
+            # self.velocity_publisher.publish(control_command)
 
             rate.sleep()
 
@@ -240,7 +240,7 @@ class ROSInterface:
                 DynamicObstacle(
                     id=person.id,
                     position=(person.pose.position.x, person.pose.position.y),
-                    orientation=np.arctan2(person.velocity_y, person.velocity_x),
+                    orientation=np.rad2deg(np.arctan2(person.velocity_y, person.velocity_x)),
                     linear_velocity=(person.velocity_x**2 + person.velocity_y**2)**0.5,
                     angular_velocity=0,
                     horizon=10,
