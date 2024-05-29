@@ -125,7 +125,7 @@ class ROSInterface:
             control_command.angular.z = self.environment.agent.angular_velocity
             print(control_command.linear.x, control_command.angular.z)
 
-            # self.velocity_publisher.publish(control_command)
+            self.velocity_publisher.publish(control_command)
 
             rate.sleep()
 
