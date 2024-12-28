@@ -39,11 +39,7 @@ class Agent(ABC):
         self.avoid_obstacles = avoid_obstacles
 
         self.initial_state = np.array([*initial_position, initial_orientation])
-        self.goal_state = (
-            np.array([*goal_position, goal_orientation])
-            if goal_position
-            else self.initial_state
-        )
+        self.goal_state = np.array([*goal_position, goal_orientation]) if goal_position else self.initial_state
 
         self.horizon = horizon
 
@@ -51,12 +47,8 @@ class Agent(ABC):
 
         self.linear_velocity_bounds: Tuple[float, float] = linear_velocity_bounds
         self.angular_velocity_bounds: Tuple[float, float] = angular_velocity_bounds
-        self.linear_acceleration_bounds: Tuple[float, float] = (
-            linear_acceleration_bounds
-        )
-        self.angular_acceleration_bounds: Tuple[float, float] = (
-            angular_acceleration_bounds
-        )
+        self.linear_acceleration_bounds: Tuple[float, float] = linear_acceleration_bounds
+        self.angular_acceleration_bounds: Tuple[float, float] = angular_acceleration_bounds
 
         self.left_right_lane_bounds: Tuple[float, float] = left_right_lane_bounds
 
@@ -157,7 +149,7 @@ class EgoAgent(Agent):
             angular_velocity_bounds=self.angular_velocity_bounds,
             linear_acceleration_bounds=self.linear_acceleration_bounds,
             angular_acceleration_bounds=self.angular_acceleration_bounds,
-            inflation_radius=(self.geometry.radius + 0.1),
+            inflation_radius=(self.geometry.radius + 0.3),
             obstacles=obstacles if self.avoid_obstacles else None,
         )
         self.geometry.location = self.state[:2]

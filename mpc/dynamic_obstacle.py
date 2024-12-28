@@ -44,9 +44,7 @@ class DynamicObstacle(Obstacle):
         predicted_states[:, 0] = self.state
 
         for time_step in range(1, horizon):
-            predicted_states[:, time_step] = self._predict_state(
-                predicted_states[:, time_step - 1]
-            )
+            predicted_states[:, time_step] = self._predict_state(predicted_states[:, time_step - 1])
 
         return predicted_states
 
