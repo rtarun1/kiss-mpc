@@ -1,75 +1,64 @@
 import numpy as np
 
 from mpc.agent import EgoAgent
-from mpc.dynamic_obstacle import DynamicObstacle
+from mpc.dynamic_obstacle import SimulatedDynamicObstacle
 from mpc.environment import LocalEnvironment
-from mpc.geometry import Circle, Ellipsoid, Rectangle
+from mpc.geometry import Circle, Polygon
 from mpc.obstacle import StaticObstacle
 
 agent = EgoAgent(
     id=1,
-    initial_position=(8, -20),
-    initial_orientation=np.pi / 2,
-    horizon=30,
+    radius=1,
+    initial_position=(-16, -16),
+    initial_orientation=np.deg2rad(90),
+    horizon=10,
     use_warm_start=True,
+    planning_time_step=0.8,
+    linear_velocity_bounds=(0, 0.3),
+    angular_velocity_bounds=(-0.5, 0.5),
+    linear_acceleration_bounds=(-0.5, 0.5),
+    angular_acceleration_bounds=(-1, 1),
+    sensor_radius=3,
 )
 
-static_obstacle_rectangle = StaticObstacle(
-    id=1,
-    geometry=Rectangle(height=2, width=8),
-    position=(-4, 10),
-)
-static_obstacle_rectangle_2 = StaticObstacle(
-    id=2,
-    geometry=Rectangle(height=2, width=8),
-    position=(8, 10),
-)
+walls = [
+    Polygon.from_rectangle(height=1, width=39, location=(0, -20)),
+    Polygon.from_rectangle(height=1, width=39, location=(0, 20)),
+    Polygon.from_rectangle(height=39, width=1, location=(-20, 0)),
+    Polygon.from_rectangle(height=39, width=1, location=(20, 0)),
+    Polygon.from_rectangle(height=9, width=1, location=(-12, -15)),
+    Polygon.from_rectangle(height=1, width=13, location=(-13, -5)),
+    Polygon.from_rectangle(height=25, width=1, location=(1, -7)),
+]
 
-static_obstacle_ellipse = StaticObstacle(
-    id=2,
-    geometry=Ellipsoid.from_rectangle(Rectangle(height=2, width=8)),
-    position=(8, 10),
-)
+circles = [Circle(center=(1, 7), radius=1), Circle(center=(1, 14), radius=1), Circle(center=(1, 18), radius=1)]
 
-static_obstacle_circle = StaticObstacle(
-    id=3,
-    geometry=Circle(radius=1),
-    position=(6, 10),
-)
-static_obstacle_circle_2 = StaticObstacle(
-    id=3,
-    geometry=Circle(radius=1),
-    position=(8, 10),
-)
-static_obstacle_circle_3 = StaticObstacle(
-    id=3,
-    geometry=Circle(radius=1),
-    position=(10, 10),
-)
+polygon_obstacles = [StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls)]
 
-dynamic_obstacle = DynamicObstacle(
+dynamic_obstacle = SimulatedDynamicObstacle(
     id=4,
-    position=(13, 12.5),
+    position=(-3, -2),
     orientation=np.deg2rad(-90),
-    goal_position=(3, -12.5),
-    goal_orientation=np.deg2rad(90),
-    horizon=30,
+    goal_position=(-3, -10),
+    goal_orientation=np.deg2rad(-90),
+    horizon=10,
 )
 
 environment = LocalEnvironment(
     agent=agent,
-    static_obstacles=[
-        # static_obstacle_rectangle,
-        # static_obstacle_rectangle_2,
-        # static_obstacle_ellipse,
-        # static_obstacle_circle,
-        # static_obstacle_circle_2,
-        # static_obstacle_circle_3,
-    ],
+    static_obstacles=[StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls + circles)],
     dynamic_obstacles=[
-        dynamic_obstacle,
+        SimulatedDynamicObstacle(
+            id=1,
+            position=(-4, -2),
+            orientation=np.deg2rad(-90),
+            goal_position=(-4, -10),
+            goal_orientation=np.deg2rad(-90),
+            horizon=10,
+        ),
     ],
-    waypoints=[((8, 15), np.deg2rad(90))],
-    save_video=True,
+    waypoints=[(-2, -2, np.deg2rad(90)), (-2, 10, np.deg2rad(90)), (10, 5, np.deg2rad(90))],
+    # save_video=True,
 )
+# environment.view_environment()
 environment.loop()
