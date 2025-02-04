@@ -114,41 +114,25 @@ class MotionPlanner:
         squared_angular_acceleration = cast(
             ca.MX, self.symbolic_controls_matrix[1, :] ** 2
         )
-        return cast(
-            ca.MX,
-            ca.sum1(ca.sum2(squared_angular_acceleration)),
-        ) * self.angular_acceleration_weight
-    
+        return (
+            cast(
+                ca.MX,
+                ca.sum1(ca.sum2(squared_angular_acceleration)),
+            )
+            * self.angular_acceleration_weight
+        )
+
     def _get_symbolic_linear_acceleration_cost(self) -> ca.MX:
         squared_linear_acceleration = cast(
             ca.MX, self.symbolic_controls_matrix[0, :] ** 2
         )
-        return cast(
-            ca.MX,
-            ca.sum1(ca.sum2(squared_linear_acceleration)),
-        ) * self.linear_acceleration_weight
-
-    # def _get_symbolic_obstacle_cost(
-    #     self, visible_obstacles: List[Obstacle], inflation_radius: float
-    # ) -> ca.MX:
-    #     # Calculate cost as proportional to the distance within the inflation radius of each obstacle
-    #     distance_from_obstacle = MX_horzcat(
-    #         *[
-    #             obstacle.calculate_symbolic_matrix_distance(
-    #                 symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
-    #             )
-    #             for obstacle in visible_obstacles
-    #         ]
-    #     )
-
-    #     # Utilize self.obstacle_cost_weight to scale the cost
-    #     scaled_cost = ca.sum1(
-    #         ca.sum2(
-    #             self.obstacle_cost_weight
-    #             * ca.fmax(0, inflation_radius - distance_from_obstacle)
-    #         )
-    #     )
-    #     return scaled_cost
+        return (
+            cast(
+                ca.MX,
+                ca.sum1(ca.sum2(squared_linear_acceleration)),
+            )
+            * self.linear_acceleration_weight
+        )
 
     def _get_symbolic_costs(
         self,
@@ -161,14 +145,6 @@ class MotionPlanner:
             + self._get_symbolic_linear_acceleration_cost()
             # + self._get_symbolic_obstacle_cost(visible_obstacles, inflation_radius)
         )
-
-    # @property
-    # def lane_cost(self, lane_bounds_x: ca.SX):
-    #     cost = 0
-    #     for timestep in range(self.horizon+1):
-    #         state = self.symbolic_states_matrix[0, timestep]
-    #         cost += (state - lane_bounds_x)**2
-    #     return cost
 
     def _get_lane_bounds(
         self, left_right_lane_bounds: Tuple[float, float]
@@ -573,3 +549,33 @@ class MotionPlanner:
         return np.array(updated_states_matrix.full()), np.array(
             updated_controls_matrix.full()
         )
+
+    # def _get_symbolic_obstacle_cost(
+    #     self, visible_obstacles: List[Obstacle], inflation_radius: float
+    # ) -> ca.MX:
+    #     # Calculate cost as proportional to the distance within the inflation radius of each obstacle
+    #     distance_from_obstacle = MX_horzcat(
+    #         *[
+    #             obstacle.calculate_symbolic_matrix_distance(
+    #                 symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
+    #             )
+    #             for obstacle in visible_obstacles
+    #         ]
+    #     )
+
+    #     # Utilize self.obstacle_cost_weight to scale the cost
+    #     scaled_cost = ca.sum1(
+    #         ca.sum2(
+    #             self.obstacle_cost_weight
+    #             * ca.fmax(0, inflation_radius - distance_from_obstacle)
+    #         )
+    #     )
+    #     return scaled_cost
+
+    # @property
+    # def lane_cost(self, lane_bounds_x: ca.SX):
+    #     cost = 0
+    #     for timestep in range(self.horizon+1):
+    #         state = self.symbolic_states_matrix[0, timestep]
+    #         cost += (state - lane_bounds_x)**2
+    #     return cost
