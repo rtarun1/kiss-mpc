@@ -9,7 +9,6 @@ It includes:
 ## Usage
 1. Install dependencies like CasADi, NumPy, matplotlib.
 2. Run the environment loops (LocalEnvironment or ROSEnvironment).
-3. Example usage can be found in the examples folder.
 
 ## Solver
 We use the IPOPT (Interior Point OPTimizer) solver through CasADi.  
