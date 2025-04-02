@@ -18,46 +18,55 @@ agent = EgoAgent(
     angular_velocity_bounds=(-0.5, 0.5),
     linear_acceleration_bounds=(-0.5, 0.5),
     angular_acceleration_bounds=(-1, 1),
-    sensor_radius=3,
+    sensor_radius=5,
 )
 
 walls = [
     Polygon.from_rectangle(height=1, width=39, location=(0, -20)),
     Polygon.from_rectangle(height=1, width=39, location=(0, 20)),
-    Polygon.from_rectangle(height=39, width=1, location=(-20, 0)),
+    # Polygon.from_rectangle(height=39, width=1, location=(-20, 0)),
     Polygon.from_rectangle(height=39, width=1, location=(20, 0)),
     Polygon.from_rectangle(height=9, width=1, location=(-12, -15)),
     Polygon.from_rectangle(height=1, width=13, location=(-13, -5)),
-    Polygon.from_rectangle(height=25, width=1, location=(1, -7)),
+    # Polygon.from_rectangle(height=25, width=1, location=(1, -7)),
 ]
 
-circles = [Circle(center=(1, 7), radius=1), Circle(center=(1, 14), radius=1), Circle(center=(1, 18), radius=1)]
+circles = [
+    Circle(center=(1, 7), radius=1),
+    Circle(center=(1, 14), radius=1),
+    Circle(center=(1, 18), radius=1),
+]
 
-polygon_obstacles = [StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls)]
+# Add 500 static obstacles representing walls
+
+circles += [Circle(center=(-20, j), radius=0.1) for j in np.arange(-20, 20, 40 / 500)]
+circles += [Circle(center=(1, j), radius=0.1) for j in np.arange(-20, 5, 25 / 100)]
+
+polygon_obstacles = [
+    StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls)
+]
 
 dynamic_obstacle = SimulatedDynamicObstacle(
-    id=4,
-    position=(-3, -2),
+    id=1,
+    position=(-4, -2),
     orientation=np.deg2rad(-90),
-    goal_position=(-3, -10),
+    goal_position=(-4, -10),
     goal_orientation=np.deg2rad(-90),
     horizon=10,
 )
 
 environment = LocalEnvironment(
     agent=agent,
-    static_obstacles=[StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls + circles)],
-    dynamic_obstacles=[
-        SimulatedDynamicObstacle(
-            id=1,
-            position=(-4, -2),
-            orientation=np.deg2rad(-90),
-            goal_position=(-4, -10),
-            goal_orientation=np.deg2rad(-90),
-            horizon=10,
-        ),
+    static_obstacles=[
+        StaticObstacle(id=i, geometry=polygon)
+        for i, polygon in enumerate(walls + circles)
     ],
-    waypoints=[(-2, -2, np.deg2rad(90)), (-2, 10, np.deg2rad(90)), (10, 5, np.deg2rad(90))],
+    dynamic_obstacles=[],
+    waypoints=[
+        (-2, -2, np.deg2rad(90)),
+        (-2, 10, np.deg2rad(90)),
+        (10, 5, np.deg2rad(90)),
+    ],
     # save_video=True,
 )
 # environment.view_environment()
