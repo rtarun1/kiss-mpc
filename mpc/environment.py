@@ -52,14 +52,26 @@ class Environment:
     def step(self):
         step_start = time.perf_counter()
 
-        filtered_obstacles = [
+        filtered_static_obstacles = [
             obstacle
-            for obstacle in self.obstacles
+            for obstacle in self.static_obstacles
             if obstacle.calculate_distance(self.agent.state) <= self.agent.sensor_radius
         ]
 
+        filtered_dynamic_obstacles = [
+            obstacle
+            for obstacle in self.dynamic_obstacles
+            if obstacle.calculate_distance(self.agent.state) <= self.agent.sensor_radius
+        ]
+
+        filtered_obstacles = filtered_static_obstacles + filtered_dynamic_obstacles
         print("Number of Obstacles:", len(filtered_obstacles))
-        self.agent.step(obstacles=filtered_obstacles)
+
+        self.agent.step(
+            static_obstacles=filtered_static_obstacles,
+            dynamic_obstacles=filtered_dynamic_obstacles,
+        )
+
         self.rollout_times.append(time.perf_counter() - step_start)
 
         for obstacle in self.dynamic_obstacles:
@@ -194,9 +206,12 @@ class ROSEnvironment(Environment):
             if distance <= self.agent.sensor_radius
         ]
         print("Number of Dyn Obstacles:", len(filtered_dynamic_obstacles))
-        obstacles = filtered_static_obstacles[:4] + filtered_dynamic_obstacles
 
-        self.agent.step(obstacles=obstacles)
+        self.agent.step(
+            static_obstacles=filtered_static_obstacles[:4],
+            dynamic_obstacles=filtered_dynamic_obstacles,
+        )
+
         t2 = time.perf_counter()
         print("Rollout Time:", t2 - t1)
 

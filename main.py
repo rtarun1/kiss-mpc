@@ -31,14 +31,14 @@ walls = [
     # Polygon.from_rectangle(height=25, width=1, location=(1, -7)),
 ]
 
-circles = [
-    Circle(center=(1, 7), radius=1),
-    Circle(center=(1, 14), radius=1),
-    Circle(center=(1, 18), radius=1),
-]
+# circles = [
+#     Circle(center=(1, 7), radius=1),
+#     Circle(center=(1, 14), radius=1),
+#     Circle(center=(1, 18), radius=1),
+# ]
 
 # Add 500 static obstacles representing walls
-
+circles = []
 circles += [Circle(center=(-20, j), radius=0.1) for j in np.arange(-20, 20, 40 / 500)]
 circles += [Circle(center=(1, j), radius=0.1) for j in np.arange(-20, 5, 25 / 100)]
 
@@ -61,7 +61,7 @@ environment = LocalEnvironment(
         StaticObstacle(id=i, geometry=polygon)
         for i, polygon in enumerate(walls + circles)
     ],
-    dynamic_obstacles=[],
+    dynamic_obstacles=[dynamic_obstacle],
     waypoints=[
         (-2, -2, np.deg2rad(90)),
         (-2, 10, np.deg2rad(90)),
