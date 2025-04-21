@@ -69,7 +69,7 @@ dynamic_obstacles = [
 assert all(
     isinstance(obstacle.geometry, Circle)
     and obstacle.geometry.radius == obstacle_geometries[0].radius
-    for obstacle in obstacle_geometries
+    for obstacle in static_obstacles
 ), "All static obstacles must have the same radius"
 
 # All dynamic obstacles must have same radius

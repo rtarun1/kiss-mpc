@@ -345,8 +345,6 @@ class MotionPlanner:
             dynamic_radius_vector,
         )
 
-        print(distances.shape)
-
         return distances
 
     def _get_obstacle_constraints_bounds(
