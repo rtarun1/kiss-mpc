@@ -278,10 +278,18 @@ class MotionPlanner:
     def _get_symbolic_obstacle_constraints(
         self, visible_obstacles: List[Obstacle]
     ) -> ca.MX:
-        assert all(
+        if not all(
             isinstance(visible_obstacles[i].geometry, Circle)
             for i in range(len(visible_obstacles))
-        ), "All obstacles must be circles"
+        ):
+            return MX_horzcat(
+                *[
+                    obstacle.calculate_symbolic_matrix_distance(
+                        symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
+                    )
+                    for obstacle in visible_obstacles
+                ]
+            )
 
         radius = cast(ca.DM, visible_obstacles[0].geometry.radius)
 
