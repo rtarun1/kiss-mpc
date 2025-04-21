@@ -21,32 +21,20 @@ agent = EgoAgent(
     sensor_radius=5,
 )
 
+static_obstacle_radius = 0.2
 walls = [
-    # Polygon.from_rectangle(height=1, width=39, location=(0, -20)),
-    # Polygon.from_rectangle(height=1, width=39, location=(0, 20)),
-    # Polygon.from_rectangle(height=39, width=1, location=(-20, 0)),
-    # Polygon.from_rectangle(height=39, width=1, location=(20, 0)),
-    # Polygon.from_rectangle(height=9, width=1, location=(-12, -15)),
-    # Polygon.from_rectangle(height=1, width=13, location=(-13, -5)),
-    # Polygon.from_rectangle(height=25, width=1, location=(1, -7)),
+    *Circle.create_circle_from_line(
+        (-20, -20), (20, -20), radius=static_obstacle_radius
+    ),
+    *Circle.create_circle_from_line((-20, 20), (20, 20), radius=static_obstacle_radius),
+    *Circle.create_circle_from_line((20, -20), (20, 20), radius=static_obstacle_radius),
+    *Circle.create_circle_from_line(
+        (-20, -20), (-20, 20), radius=static_obstacle_radius
+    ),
+    *Circle.create_circle_from_line((1, -20), (1, 8), radius=static_obstacle_radius),
 ]
 
-# circles = [
-#     Circle(center=(1, 7), radius=1),
-#     Circle(center=(1, 14), radius=1),
-#     Circle(center=(1, 18), radius=1),
-# ]
-
-# Add 500 static obstacles representing walls
-circles = []
-circles += [Circle(center=(-20, j), radius=0.1) for j in np.arange(-20, 20, 40 / 500)]
-circles += [Circle(center=(1, j), radius=0.1) for j in np.arange(-20, 5, 25 / 100)]
-
-polygon_obstacles = [
-    StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls)
-]
-
-obstacle_geometries = circles + polygon_obstacles
+obstacle_geometries = walls
 static_obstacles = [
     StaticObstacle(id=i, geometry=geometry)
     for i, geometry in enumerate(obstacle_geometries)

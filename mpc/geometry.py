@@ -172,12 +172,22 @@ class Circle(Geometry):
         patch.set_center(self.location)
 
     @staticmethod
-    def create_circle_from_line(start: float, end: float, radius: float) -> List["Circle"]:
-        total_length = abs(end - start)
-        num_circles = int(total_length // (2 * radius)) + 1  
-        center_positions = np.linspace(start + radius, end - radius, num=num_circles)
+    def create_circle_from_line(start: Tuple[float, float], end: Tuple[float, float], radius: float) -> List["Circle"]:
+        start = np.array(start, dtype=np.float64)
+        end = np.array(end, dtype=np.float64)
 
-        circles = [Circle((x, 0.0), radius) for x in center_positions]
+        direction = end - start
+        total_length = np.linalg.norm(direction)
+        
+        if total_length == 0:
+            return [Circle(tuple(start), radius)] 
+
+        direction_unit = direction / total_length
+        num_circles = int(total_length // (2 * radius)) + 1
+
+        centers = [start + i * 2 * radius * direction_unit for i in range(num_circles)]
+        circles = [Circle(tuple(center), radius) for center in centers]
+        
         return circles
 
 
