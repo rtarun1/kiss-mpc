@@ -3,7 +3,7 @@ import numpy as np
 from mpc.agent import EgoAgent
 from mpc.dynamic_obstacle import SimulatedDynamicObstacle
 from mpc.environment import LocalEnvironment
-from mpc.geometry import Circle, Polygon
+from mpc.geometry import Circle
 from mpc.obstacle import StaticObstacle
 
 agent = EgoAgent(
@@ -46,6 +46,12 @@ polygon_obstacles = [
     StaticObstacle(id=i, geometry=polygon) for i, polygon in enumerate(walls)
 ]
 
+obstacle_geometries = circles + polygon_obstacles
+static_obstacles = [
+    StaticObstacle(id=i, geometry=geometry)
+    for i, geometry in enumerate(obstacle_geometries)
+]
+
 dynamic_obstacle = SimulatedDynamicObstacle(
     id=1,
     position=(-4, -2),
@@ -55,13 +61,29 @@ dynamic_obstacle = SimulatedDynamicObstacle(
     horizon=10,
 )
 
+dynamic_obstacles = [
+    dynamic_obstacle,
+]
+
+# All static obstacles must have same radius
+assert all(
+    isinstance(obstacle.geometry, Circle)
+    and obstacle.geometry.radius == obstacle_geometries[0].radius
+    for obstacle in obstacle_geometries
+), "All static obstacles must have the same radius"
+
+# All dynamic obstacles must have same radius
+assert all(
+    isinstance(obstacle.geometry, Circle)
+    and obstacle.geometry.radius == dynamic_obstacles[0].geometry.radius
+    for obstacle in dynamic_obstacles
+), "All dynamic obstacles must have the same radius"
+
+
 environment = LocalEnvironment(
     agent=agent,
-    static_obstacles=[
-        StaticObstacle(id=i, geometry=polygon)
-        for i, polygon in enumerate(walls + circles)
-    ],
-    dynamic_obstacles=[dynamic_obstacle],
+    static_obstacles=static_obstacles,
+    dynamic_obstacles=dynamic_obstacles,
     waypoints=[
         (-2, -2, np.deg2rad(90)),
         (-2, 10, np.deg2rad(90)),
