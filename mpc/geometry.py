@@ -171,6 +171,15 @@ class Circle(Geometry):
         # Plot the circle
         patch.set_center(self.location)
 
+    @staticmethod
+    def create_circle_from_line(start: float, end: float, radius: float) -> List["Circle"]:
+        total_length = abs(end - start)
+        num_circles = int(total_length // (2 * radius)) + 1  
+        center_positions = np.linspace(start + radius, end - radius, num=num_circles)
+
+        circles = [Circle((x, 0.0), radius) for x in center_positions]
+        return circles
+
 
 # class Ellipsoid(Geometry):
 #     def __init__(self, a: float, b: float):
