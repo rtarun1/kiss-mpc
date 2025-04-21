@@ -23,7 +23,9 @@ class Environment:
         self.dynamic_obstacles = dynamic_obstacles
 
         for obstacle in self.dynamic_obstacles:
-            assert obstacle.horizon == agent.horizon, "Dynamic obstacle horizon must match agent horizon"
+            assert obstacle.horizon == agent.horizon, (
+                "Dynamic obstacle horizon must match agent horizon"
+            )
 
         self.waypoints = waypoints
         self.waypoint_index = 0
@@ -33,7 +35,11 @@ class Environment:
 
     @property
     def current_waypoint(self):
-        return self.waypoints[self.waypoint_index] if self.waypoint_index < len(self.waypoints) else None
+        return (
+            self.waypoints[self.waypoint_index]
+            if self.waypoint_index < len(self.waypoints)
+            else None
+        )
 
     @property
     def final_goal_reached(self):
@@ -45,13 +51,15 @@ class Environment:
 
     def step(self):
         step_start = time.perf_counter()
-        self.agent.step(
-            obstacles=[
-                obstacle
-                for obstacle in self.obstacles
-                if obstacle.calculate_distance(self.agent.state) <= self.agent.sensor_radius
-            ]
-        )
+
+        filtered_obstacles = [
+            obstacle
+            for obstacle in self.obstacles
+            if obstacle.calculate_distance(self.agent.state) <= self.agent.sensor_radius
+        ]
+
+        print("Number of Obstacles:", len(filtered_obstacles))
+        self.agent.step(obstacles=filtered_obstacles)
         self.rollout_times.append(time.perf_counter() - step_start)
 
         for obstacle in self.dynamic_obstacles:
@@ -86,7 +94,9 @@ class LocalEnvironment(Environment):
         super().__init__(agent, static_obstacles, dynamic_obstacles, waypoints)
         self.plot = plot
         self.results_path = Path(results_path)
-        assert plot is True if save_video else True, "Cannot save video without plotting"
+        assert plot is True if save_video else True, (
+            "Cannot save video without plotting"
+        )
         self.save_video = save_video
         if self.plot:
             self.plotter = Plotter(
@@ -104,7 +114,9 @@ class LocalEnvironment(Environment):
             if self.plot:
                 self.plotter.update_plot(self.waypoints)
             max_timesteps -= 1
-            print(f"Step {len(self.rollout_times)}, Time: {self.rollout_times[-1] * 1000:.2f} ms")
+            print(
+                f"Step {len(self.rollout_times)}, Time: {self.rollout_times[-1] * 1000:.2f} ms"
+            )
         time_array = np.array(self.rollout_times)
         # Print metrics excluding first rollout
         print(f"Average rollout time: {time_array[1:].mean() * 1000:.2f} ms")
@@ -134,7 +146,9 @@ class ROSEnvironment(Environment):
         super().__init__(agent, static_obstacles, dynamic_obstacles, waypoints)
         self.plot = plot
         self.results_path = Path(results_path)
-        assert plot is True if save_video else True, "Cannot save video without plotting"
+        assert plot is True if save_video else True, (
+            "Cannot save video without plotting"
+        )
         self.save_video = save_video
 
         if self.plot:
@@ -162,7 +176,8 @@ class ROSEnvironment(Environment):
 
         t1 = time.perf_counter()
         static_obstacles_dict = {
-            obstacle.calculate_distance(self.agent.state): obstacle for obstacle in self.static_obstacles
+            obstacle.calculate_distance(self.agent.state): obstacle
+            for obstacle in self.static_obstacles
         }
         filtered_static_obstacles = [
             static_obstacles_dict[distance]
@@ -170,7 +185,8 @@ class ROSEnvironment(Environment):
             if distance <= self.agent.sensor_radius
         ]
         dynamic_obstacles_dict = {
-            obstacle.calculate_distance(self.agent.state): obstacle for obstacle in self.dynamic_obstacles
+            obstacle.calculate_distance(self.agent.state): obstacle
+            for obstacle in self.dynamic_obstacles
         }
         filtered_dynamic_obstacles = [
             dynamic_obstacles_dict[distance]

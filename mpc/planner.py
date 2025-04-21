@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, cast
 import casadi as ca
 import numpy as np
 
+from mpc.geometry import Circle
 from mpc.obstacle import Obstacle
 
 
@@ -277,14 +278,40 @@ class MotionPlanner:
     def _get_symbolic_obstacle_constraints(
         self, visible_obstacles: List[Obstacle]
     ) -> ca.MX:
-        return MX_horzcat(
+        assert all(
+            isinstance(visible_obstacles[i].geometry, Circle)
+            for i in range(len(visible_obstacles))
+        ), "All obstacles must be circles"
+
+        radius = cast(ca.DM, visible_obstacles[0].geometry.radius)
+
+        num_obstacles = len(visible_obstacles)
+
+        centers = DM_horzcat(
             *[
-                obstacle.calculate_symbolic_matrix_distance(
-                    symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
-                )
-                for obstacle in visible_obstacles
+                visible_obstacles[i].geometry.center
+                for i in range(len(visible_obstacles))
             ]
         )
+
+        x_differences = cast(
+            ca.MX,
+            ca.repmat(centers[0, :].T, 1, self.horizon)
+            - ca.repmat(self.symbolic_states_matrix[0, 1:], num_obstacles, 1),
+        )
+
+        y_differences = cast(
+            ca.MX,
+            ca.repmat(centers[1, :].T, 1, self.horizon)
+            - ca.repmat(self.symbolic_states_matrix[1, 1:], num_obstacles, 1),
+        )
+
+        distances = cast(
+            ca.MX,
+            ca.sqrt(x_differences**2 + y_differences**2) - radius,
+        )
+
+        return distances.T
 
     def _get_obstacle_constraints_bounds(
         self, inflation_radius: float, num_obstacles: int

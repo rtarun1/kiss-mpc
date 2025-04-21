@@ -22,12 +22,12 @@ agent = EgoAgent(
 )
 
 walls = [
-    Polygon.from_rectangle(height=1, width=39, location=(0, -20)),
-    Polygon.from_rectangle(height=1, width=39, location=(0, 20)),
+    # Polygon.from_rectangle(height=1, width=39, location=(0, -20)),
+    # Polygon.from_rectangle(height=1, width=39, location=(0, 20)),
     # Polygon.from_rectangle(height=39, width=1, location=(-20, 0)),
-    Polygon.from_rectangle(height=39, width=1, location=(20, 0)),
-    Polygon.from_rectangle(height=9, width=1, location=(-12, -15)),
-    Polygon.from_rectangle(height=1, width=13, location=(-13, -5)),
+    # Polygon.from_rectangle(height=39, width=1, location=(20, 0)),
+    # Polygon.from_rectangle(height=9, width=1, location=(-12, -15)),
+    # Polygon.from_rectangle(height=1, width=13, location=(-13, -5)),
     # Polygon.from_rectangle(height=25, width=1, location=(1, -7)),
 ]
 
