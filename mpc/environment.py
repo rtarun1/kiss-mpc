@@ -1,21 +1,23 @@
 import time
 from pathlib import Path
-from typing import List, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 import numpy as np
 
-from mpc.agent import EgoAgent
-from mpc.dynamic_obstacle import DynamicObstacle, SimulatedDynamicObstacle
-from mpc.obstacle import StaticObstacle
+if TYPE_CHECKING:
+    from mpc.agent import EgoAgent
+    from mpc.dynamic_obstacle import DynamicObstacle, SimulatedDynamicObstacle
+    from mpc.obstacle import StaticObstacle
+
 from mpc.plotter import Plotter
 
 
 class Environment:
     def __init__(
         self,
-        agent: EgoAgent,
-        static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[SimulatedDynamicObstacle],
+        agent: "EgoAgent",
+        static_obstacles: List["StaticObstacle"],
+        dynamic_obstacles: List["SimulatedDynamicObstacle"],
         waypoints: List[Tuple[Tuple, float]],
     ):
         self.agent = agent
@@ -95,9 +97,9 @@ class Environment:
 class LocalEnvironment(Environment):
     def __init__(
         self,
-        agent: EgoAgent,
-        static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[SimulatedDynamicObstacle],
+        agent: "EgoAgent",
+        static_obstacles: List["StaticObstacle"],
+        dynamic_obstacles: List["SimulatedDynamicObstacle"],
         waypoints: List[Tuple[Tuple, float]],
         plot: bool = True,
         results_path: str = "results",
@@ -147,9 +149,9 @@ class LocalEnvironment(Environment):
 class ROSEnvironment(Environment):
     def __init__(
         self,
-        agent: EgoAgent,
-        static_obstacles: List[StaticObstacle],
-        dynamic_obstacles: List[DynamicObstacle],
+        agent: "EgoAgent",
+        static_obstacles: List["StaticObstacle"],
+        dynamic_obstacles: List["DynamicObstacle"],
         waypoints: List[Tuple[Tuple, float]],
         plot: bool = True,
         results_path: str = "results",
