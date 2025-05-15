@@ -7,9 +7,8 @@ import rospy
 import tf2_ros
 from costmap_converter.msg import ObstacleArrayMsg, ObstacleMsg
 from geometry_msgs.msg import Point32, Pose, PoseStamped, PoseWithCovariance, Twist
-from leg_tracker.msg import PeopleVelocity, PersonVelocity
 from nav_msgs.msg import Odometry, Path
-from people_msgs.msg import People, Person
+from people_msgs.msg import People
 from sensor_msgs.msg import PointCloud
 from tf.transformations import euler_from_quaternion
 from tf2_ros import Buffer, TransformListener
@@ -56,7 +55,9 @@ class ROSInterface:
         self.tfbuffer = Buffer()
         self.listener = TransformListener(self.tfbuffer)
 
-        rospy.Subscriber("/vel_pub", PeopleVelocity, self.people_callback)
+        # rospy.Subscriber("/vel_pub", PeopleVelocity, self.people_callback)
+        rospy.Subscriber("/onboard_detector/people_velocity", People, self.people_callback)
+
         rospy.Subscriber(
             "/locomotor/VoronoiPlannerROS/voronoi_path",
             Path,
@@ -287,25 +288,23 @@ class ROSInterface:
         else:
             pass
 
-    def people_callback(self, message: PeopleVelocity):
-        # Create a dynamic obstacle for each person
+    def people_callback(self, message: People):
+        print("people_callback invoked")
         dynamic_obstacle_list: List[DynamicObstacle] = []
 
-        for person in message.people:
-            person: PersonVelocity
+        for i, person in enumerate(message.people):
+            # person.position and person.velocity come from people_msgs::Person
             dynamic_obstacle_list.append(
                 DynamicObstacle(
-                    id=person.id,
-                    position=(person.pose.position.x, person.pose.position.y),
-                    orientation=np.rad2deg(
-                        np.arctan2(person.velocity_y, person.velocity_x)
-                    ),
-                    linear_velocity=(person.velocity_x**2 + person.velocity_y**2)
-                    ** 0.5,
+                    id=i,
+                    position=(person.position.x, person.position.y),
+                    orientation=np.arctan2(person.velocity.y, person.velocity.x),
+                    linear_velocity=(person.velocity.x**2 + person.velocity.y**2)**0.5,
                     angular_velocity=0,
                     horizon=10,
                 )
             )
+            # rospy.loginfo("Dynamic Obstacle %d: pos=(%.2f, %.2f), vel=(%.2f, %.2f)", i, person.position.x, person.position.y, person.velocity.x, person.velocity.y)
 
         self.environment.dynamic_obstacles = dynamic_obstacle_list
         print("---")
