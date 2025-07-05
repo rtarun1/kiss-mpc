@@ -52,10 +52,10 @@ class MotionPlanner:
         )
         self.num_controls = self.symbolic_controls.numel()
         
-        self.weight_matrix = ca.DM(ca.diagcat(100, 100, 0))
+        self.weight_matrix = ca.DM(ca.diagcat(100, 100, 50))
         
-        self.linear_velocity_weight = ca.DM(50)
-        self.angular_velocity_weight = ca.DM(30)
+        self.negative_linear_velocity_weight = ca.DM(300)
+        self.angular_velocity_weight = ca.DM(0)
         
         self.symbolic_states_matrix = create_symbolic_matrix(
             "X", (self.num_states, self.horizon + 1)
@@ -80,12 +80,18 @@ class MotionPlanner:
         cost = ca.sum2((ca.transpose(error) @ self.weight_matrix) * ca.transpose(error))
         return ca.sum1(cost)
     
-    def get_symbolic_linear_velocity_cost(self) -> ca.MX:
-        squared_linear_velocity = self.symbolic_controls_matrix[0, :] ** 2
+    # def get_symbolic_linear_velocity_cost(self) -> ca.MX:
+    #     squared_linear_velocity = self.symbolic_controls_matrix[0, :] ** 2
+    #     return(
+    #         (ca.sum1(ca.sum2(squared_linear_velocity))) * self.linear_velocity_weight
+    #            )
+    
+    def get_symbolic_negative_linear_velocity_cost(self) -> ca.MX:
+        negative_linear_velocity = ca.fmin(self.symbolic_controls_matrix[0, :], 0)
+                
         return(
-            (ca.sum1(ca.sum2(squared_linear_velocity))) * self.linear_velocity_weight
-               )
-        
+            (ca.sum1(ca.sum2(negative_linear_velocity))) * self.negative_linear_velocity_weight
+               )    
     def get_symbolic_angular_velocity_cost(self) -> ca.MX:
         squared_angular_velocity = self.symbolic_controls_matrix[1, :] ** 2
         return(
@@ -97,7 +103,7 @@ class MotionPlanner:
     ) -> ca.MX:
         return(
             self.get_symbolic_goal_cost()
-            + self.get_symbolic_linear_velocity_cost()
+            + self.get_symbolic_negative_linear_velocity_cost()
             + self.get_symbolic_angular_velocity_cost()
         )
     def get_state_bounds(
