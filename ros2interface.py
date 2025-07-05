@@ -51,7 +51,7 @@ class ROS2Interface(Node):
     def run(self):
         if not self.waypoints:
             return
-        print("run function is running")
+        # print("run function is running")
         self.model.step()
         self.future_states_pub()
         
@@ -152,7 +152,7 @@ class ROS2Interface(Node):
                         ]
                     )[2],
                 )
-                for pose in poses[::35]
+                for pose in poses[::25]
             ]
             waypoints.append(
                 (

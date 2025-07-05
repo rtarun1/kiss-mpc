@@ -103,12 +103,12 @@ class Model(ABC):
         self,
         state_override: bool = False,
     ):
-        print("step function is running")
+        # print("step function is running")
         if self.at_goal and not self.final_goal_reached():
             print("Reached waypoint", self.waypoint_index + 1)
             self.waypoint_index += 1
             self.update_goal(self.current_waypoint())
-            
+        t1 = time.perf_counter() 
         current_state = self.state() if not state_override else self.initial_state
         
         self.states_matrix, self.controls_matrix = self.planner.solve(
@@ -122,6 +122,9 @@ class Model(ABC):
             linear_velocity_bounds=self.linear_velocity_bounds,
             angular_velocity_bounds=self.angular_velocity_bounds,
         )
+        
+        t2 = time.perf_counter()
+        print("Rollout Time:", t2 - t1)
             
         self.linear_velocity = self.controls_matrix[0, 0]
         self.angular_velocity = self.controls_matrix[1, 0]
