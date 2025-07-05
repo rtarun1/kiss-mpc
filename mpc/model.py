@@ -66,23 +66,14 @@ class Model(ABC):
         return self.waypoints[self.waypoint_index]
     
     def final_goal_reached(self):
-        return self.waypoint_index == len(self.waypoints) - 1 and self.at_goal
+        return self.waypoint_index == len(self.waypoints) - 1 and self.at_goal()
     
-    def update_goal(self, goal):
-        
-        if goal is not None:
-            if isinstance(goal, tuple):
-                self.goal_state = np.array(goal)
-            else:
-                self.goal_state = goal
-        else:
-            self.goal_state = self.initial_state
+    def update_goal(self, goal): 
+        self.goal_state = goal if (goal is not None) else self.initial_state
         
     def state(self):
-        
         return self.states_matrix[:, 0] 
     
-    @property
     def at_goal(self):
         current_pos = self.state()[:2] 
         goal_pos = self.goal_state[:2]
@@ -104,10 +95,10 @@ class Model(ABC):
         state_override: bool = False,
     ):
         # print("step function is running")
-        if self.at_goal and not self.final_goal_reached():
-            print("Reached waypoint", self.waypoint_index + 1)
-            self.waypoint_index += 1
-            self.update_goal(self.current_waypoint())
+        if self.waypoint_index == len(self.waypoints) - 1:
+            print("Heading for final goal")
+        if self.final_goal_reached():
+            print("Final Goal Reached")
         t1 = time.perf_counter() 
         current_state = self.state() if not state_override else self.initial_state
         
@@ -122,9 +113,14 @@ class Model(ABC):
             linear_velocity_bounds=self.linear_velocity_bounds,
             angular_velocity_bounds=self.angular_velocity_bounds,
         )
+        if self.at_goal() and not self.final_goal_reached():
+            print("Reached waypoint", self.waypoint_index + 1)
+            self.waypoint_index += 1
+            self.update_goal(self.current_waypoint())
+        
         
         t2 = time.perf_counter()
-        print("Rollout Time:", t2 - t1)
+        # print("Rollout Time:", t2 - t1)
             
         self.linear_velocity = self.controls_matrix[0, 0]
         self.angular_velocity = self.controls_matrix[1, 0]
