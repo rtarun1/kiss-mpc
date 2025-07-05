@@ -5,6 +5,10 @@ import numpy as np
 import rclpy
 import rclpy.duration
 import rclpy.time
+from nav_msgs.msg import OccupancyGrid
+from geometry_msgs.msg import Pose
+from sklearn.cluster import DBSCAN
+import numpy as np
 import tf2_ros
 
 from tf2_geometry_msgs import do_transform_pose_stamped
@@ -14,9 +18,11 @@ from rclpy.node import Node
 from scipy.spatial.transform import (
     Rotation as R,  
 )
+
 from tf2_ros import Buffer, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 from mpc.model import Model
+
 
 def euler_from_quaternion(quat, degree = False):
     return R.from_quat(quat).as_euler('xyz')
@@ -41,9 +47,11 @@ class ROS2Interface(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.waypoints=[]
+        self.static_obstacle_list = []
         
         self.create_subscription(Path, '/plan', self.waypoint_callback, 10)
         self.create_subscription(Odometry, "/odom", self.odom_callback, 10)
+        self.create_subscription(OccupancyGrid, "/local_costmap/costmap", self.obstacle_callback, 10)
         
         self.velocity_publisher = self.create_publisher(Twist, '/wheelchair2_base_controller/cmd_vel_unstamped', 10)
         self.marker_publisher = self.create_publisher(MarkerArray, '/future_states', 10)
@@ -106,6 +114,39 @@ class ROS2Interface(Node):
         )
         self.model.reset(matrices_only=True)
         
+    def obstacle_callback(self, message: OccupancyGrid):
+        width = message.info.width
+        height = message.info.height
+        resolution = message.info.resolution
+        origin: Pose = message.info.origin
+        grid = np.array(message.data, dtype=np.uint8).reshape((height, width))
+        
+        obstacle_threshold = 50
+        y_indices, x_indices = np.where(grid >= obstacle_threshold)
+        
+        if len(x_indices) == 0:
+            self.static_obstacle_list = []
+            return
+        origin_x = origin.position.x
+        origin_y = origin.position.y
+        
+        points= np.zeros((len(x_indices), 2), dtype=np.float32)
+        points[:, 0] = x_indices * resolution + origin_x
+        points[:, 1] = y_indices * resolution + origin_y
+        
+        db = DBSCAN(eps=0.5, min_samples=3).fit(points)
+        labels = db.labels_
+        
+        circles = []
+        for label in set(labels):
+            if label == -1:
+                continue
+            cluster_points = points[labels == label]
+            center = np.mean(cluster_points, axis=0)
+            radius = 0.3
+            circles.append(Circle(center=tuple(center), radius=radius))
+        self.static_obstacle_list = circles
+            
     def waypoint_callback(self, message: Path):
         try:
             transform = self.tf_buffer.lookup_transform("odom", "map", rclpy.time.Time())
