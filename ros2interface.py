@@ -18,13 +18,6 @@ from tf2_ros import Buffer, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 from mpc.model import Model
 
-from mpc.agent import EgoAgent
-from mpc.environment import ROSEnvironment
-from mpc.geometry import Circle
-from mpc.obstacle import StaticObstacle
-import cv2
-from mpc.geometry import Polygon
-
 def euler_from_quaternion(quat, degree = False):
     return R.from_quat(quat).as_euler('xyz')
 

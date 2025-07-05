@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, List, Tuple
 import numpy as np
 import time
 from pathlib import Path
-from mpc.geometry import Circle
 from mpc.optimizer import MotionPlanner
 
 class Model(ABC):
