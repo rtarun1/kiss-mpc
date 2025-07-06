@@ -22,7 +22,7 @@ from scipy.spatial.transform import (
 from tf2_ros import Buffer, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 from mpc.model import Model
-from mpc.obstacle_handler import Circle
+from mpc.obstacle_handler import Circle, StaticObstacle, ObstacleHandler
 
 def euler_from_quaternion(quat, degree = False):
     return R.from_quat(quat).as_euler('xyz')
@@ -43,11 +43,19 @@ class ROS2Interface(Node):
             waypoints=[],
         )
         
+        # Initialize obstacle handler
+        self.ego_circle = Circle(center=(0, 0), radius=0.3)  # Robot's footprint
+        self.obstacle_handler = ObstacleHandler(
+            static_obstacles=[],
+            circle=self.ego_circle,
+            model=self.model
+        )
+        
         self.counter = 0
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.waypoints=[]
-        self.static_obstacle_list = []
+        self.waypoints = []
+        self.static_obstacle_list = []  # This will store Circle objects
         
         self.create_subscription(Path, '/plan', self.waypoint_callback, 10)
         self.create_subscription(Odometry, "/odom", self.odom_callback, 10)
@@ -58,17 +66,33 @@ class ROS2Interface(Node):
         self.circle_marker_pub = self.create_publisher(MarkerArray, '/visualized_obstacles', 10)
 
         self.timer = self.create_timer(0.01, self.run)
+        
     def run(self):
         if not self.waypoints:
             return
-        # print("run function is running")
-        self.model.step()
+            
+        # Update obstacle handler with current obstacles
+        self.update_obstacle_handler()
+        
+        # Use obstacle handler to step the model
+        self.obstacle_handler.step()
+        
         self.future_states_pub()
         
         control_command = Twist()
         control_command.linear.x = self.model.linear_velocity
         control_command.angular.z = self.model.angular_velocity
         self.velocity_publisher.publish(control_command)
+        
+    def update_obstacle_handler(self):
+        """Convert Circle objects to StaticObstacle objects for the obstacle handler"""
+        static_obstacles = []
+        for i, circle in enumerate(self.static_obstacle_list):
+            static_obstacle = StaticObstacle(id=i, circle=circle)
+            static_obstacles.append(static_obstacle)
+        
+        # Update the obstacle handler's obstacle list
+        self.obstacle_handler.static_obstacles = static_obstacles
         
     def future_states_pub(self):
         marker_array = MarkerArray()
@@ -129,28 +153,46 @@ class ROS2Interface(Node):
         if len(x_indices) == 0:
             self.static_obstacle_list = []
             return
+        
+        # Transform from grid coordinates to world coordinates
         origin_x = origin.position.x
         origin_y = origin.position.y
         
-        points= np.zeros((len(x_indices), 2), dtype=np.float32)
+        # Convert grid indices to world coordinates
+        points = np.zeros((len(x_indices), 2), dtype=np.float32)
         points[:, 0] = x_indices * resolution + origin_x
         points[:, 1] = y_indices * resolution + origin_y
         
-        db = DBSCAN(eps=0.5, min_samples=1).fit(points)
+        # DBSCAN clustering with smaller eps to create more clusters
+        db = DBSCAN(eps=0.2, min_samples=3).fit(points)
         labels = db.labels_
         
         circles = []
         for label in set(labels):
-            if label == -1:
+            if label == -1:  # Skip noise points for now
                 continue
             cluster_points = points[labels == label]
+            
+            # Calculate cluster center
             center = np.mean(cluster_points, axis=0)
-            radius = 0.3
+            
+            # Smaller radius for more obstacles
+            radius = 0.15
+            
+            # Create Circle object (compatible with your obstacle_handler)
             circles.append(Circle(center=tuple(center), radius=radius))
+        
+        # Handle noise points as individual small obstacles
+        noise_points = points[labels == -1]
+        for point in noise_points:
+            circles.append(Circle(center=tuple(point), radius=0.1))
+        
         self.static_obstacle_list = circles
         self.publish_circle_markers()
+        
+        # Debug print
+        print(f"Created {len(circles)} obstacle circles")
 
-    
     def publish_circle_markers(self):
         marker_array = MarkerArray()
 
@@ -163,19 +205,20 @@ class ROS2Interface(Node):
             marker.type = Marker.CYLINDER
             marker.action = Marker.ADD
 
+            # Position in world coordinates
             marker.pose.position.x = float(circle.center[0])
             marker.pose.position.y = float(circle.center[1])
-            marker.pose.position.z = 0.0  # 2D circle in XY plane
+            marker.pose.position.z = 0.0
 
             marker.pose.orientation.x = 0.0
             marker.pose.orientation.y = 0.0
             marker.pose.orientation.z = 0.0
             marker.pose.orientation.w = 1.0
 
-            # Circle = cylinder in RViz with height and diameter
+            # Circle visualization
             marker.scale.x = circle.radius * 2
             marker.scale.y = circle.radius * 2
-            marker.scale.z = 0.05  # Thin "cylinder" (circle)
+            marker.scale.z = 0.05
 
             marker.color.a = 0.8
             marker.color.r = 1.0
@@ -185,7 +228,6 @@ class ROS2Interface(Node):
             marker_array.markers.append(marker)
 
         self.circle_marker_pub.publish(marker_array)
-
             
     def waypoint_callback(self, message: Path):
         try:
@@ -257,7 +299,6 @@ class ROS2Interface(Node):
 def main(args=None):
     rclpy.init(args=args)
     ros_interface = ROS2Interface()
-    # ros_interface.run()
     rclpy.spin(ros_interface)
     ros_interface.destroy_node()
     rclpy.shutdown()

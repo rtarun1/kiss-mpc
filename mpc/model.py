@@ -23,7 +23,6 @@ class Model(ABC):
         goal_orientation: float = None,
         waypoints: List[Tuple[Tuple, float]] = None,
         use_warm_start: bool = False,
-        
     ):
         assert horizon > 0
         self.waypoints = waypoints
@@ -39,7 +38,6 @@ class Model(ABC):
         )
 
         self.horizon = horizon
-
         self.time_step = planning_time_step
         self.linear_velocity_bounds: Tuple[float, float] = linear_velocity_bounds
         self.angular_velocity_bounds: Tuple[float, float] = angular_velocity_bounds
