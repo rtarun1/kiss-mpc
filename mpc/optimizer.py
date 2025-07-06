@@ -271,7 +271,7 @@ class MotionPlanner:
             state_constraints_upper_bound.reshape((-1, 1))
         )
         
-        if num_obstacles > 0:
+        if num_obstacles != 0:
             (
                 obstacles_constrains_lower_bound,
                 obstacles_constrains_upper_bound,
@@ -333,7 +333,7 @@ class MotionPlanner:
             linear_velocity_bounds=linear_velocity_bounds,
             angular_velocity_bounds=angular_velocity_bounds,
             inflation_radius=(inflation_radius if inflation_radius is not None else 0),
-            num_obstacles=(static_obstacles),
+            num_obstacles=len(static_obstacles),
         )
         
         (

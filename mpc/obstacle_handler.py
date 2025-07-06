@@ -4,7 +4,7 @@ from typing import List, Tuple
 from abc import ABC, abstractmethod
 import time
 import cv2
-from mpc.model import Model
+# from mpc.model import Model
 
 class Circle:
     def __init__(self, center: Tuple, radius: float):
@@ -67,7 +67,7 @@ class ObstacleHandler:
         self,
         static_obstacles: List["StaticObstacle"],
         circle: Circle,
-        model: Model
+        model
     ):  
         self.model = model
         self.circle = circle

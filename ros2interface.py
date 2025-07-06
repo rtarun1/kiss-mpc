@@ -136,7 +136,7 @@ class ROS2Interface(Node):
         points[:, 0] = x_indices * resolution + origin_x
         points[:, 1] = y_indices * resolution + origin_y
         
-        db = DBSCAN(eps=0.5, min_samples=3).fit(points)
+        db = DBSCAN(eps=0.5, min_samples=1).fit(points)
         labels = db.labels_
         
         circles = []
