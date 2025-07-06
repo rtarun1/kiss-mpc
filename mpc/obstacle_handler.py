@@ -4,6 +4,7 @@ from typing import List, Tuple
 from abc import ABC, abstractmethod
 import time
 import cv2
+from mpc.model import Model
 
 class Circle:
     def __init__(self, center: Tuple, radius: float):
@@ -60,3 +61,32 @@ class StaticObstacle:
         print(f"Symbolic distance generation took: {duration:.6f} seconds")
         
         return result
+    
+class ObstacleHandler:
+    def __init__(
+        self,
+        static_obstacles: List["StaticObstacle"],
+        circle: Circle,
+        model: Model
+    ):  
+        self.model = model
+        self.circle = circle
+        self.static_obstacles = static_obstacles
+    def step(self):
+        static_obstacles_dict = {
+            obstacle.circle.calculate_distance(self.model.state): obstacle
+            for obstacle in self.static_obstacles
+        }
+        filtered_static_obstacles = [
+            static_obstacles_dict[distance]
+            for distance in sorted(static_obstacles_dict.keys())
+            if True
+            # if distance <= self.agent.sensor_radius
+        ]
+        print("Number of Static Obstacles:", len(filtered_static_obstacles))
+        
+        self.model.step(
+            static_obstacles=filtered_static_obstacles,
+            state_override=True
+        )
+        

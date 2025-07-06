@@ -4,6 +4,7 @@ import numpy as np
 import time
 from pathlib import Path
 from mpc.optimizer import MotionPlanner
+from mpc.obstacle_handler import StaticObstacle
 
 class Model(ABC):
     def __init__(
@@ -92,6 +93,7 @@ class Model(ABC):
     
     def step(
         self,
+        static_obstacles: List["StaticObstacle"] = [],
         state_override: bool = False,
     ):
         # print("step function is running")
@@ -112,6 +114,7 @@ class Model(ABC):
             state_bounds=self.state_bounds,
             linear_velocity_bounds=self.linear_velocity_bounds,
             angular_velocity_bounds=self.angular_velocity_bounds,
+            static_obstacles=static_obstacles,
         )
         if self.at_goal() and not self.final_goal_reached():
             print("Reached waypoint", self.waypoint_index + 1)

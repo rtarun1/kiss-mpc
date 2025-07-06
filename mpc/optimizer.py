@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union, cast
-from mpc.obstacle_handler import StaticObstacle
+# from mpc.obstacle_handler import StaticObstacle
 import casadi as ca
 import numpy as np
 
@@ -196,7 +196,7 @@ class MotionPlanner:
     
     def get_symbolic_obstacle_constraints(
         self,
-        static_obstacles: List["StaticObstacle"],
+        static_obstacles,
     ) -> ca.MX:
         if len(static_obstacles) == 0:
             return ca.MX()
@@ -232,7 +232,7 @@ class MotionPlanner:
         self,
         current_linear_velocity: float,
         current_angular_velocity: float,
-        static_obstacles: List["StaticObstacle"],
+        static_obstacles,
         num_obstacles: int = 0
     ) -> ca.MX:
         symbolic_constraints = MX_vertcat(
@@ -300,7 +300,7 @@ class MotionPlanner:
         state_bounds: np.ndarray,
         linear_velocity_bounds: np.ndarray,
         angular_velocity_bounds: np.ndarray,
-        static_obstacles: List["StaticObstacle"] = [],
+        static_obstacles = [],
         inflation_radius: Optional[float] = None
     ):
         non_linear_program = {
