@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union, cast
-
+from mpc.obstacle_handler import StaticObstacle
 import casadi as ca
 import numpy as np
 
@@ -193,11 +193,47 @@ class MotionPlanner:
                 initial_state_constraint,
                 state_update_constraints
             )
+    
+    def get_symbolic_obstacle_constraints(
+        self,
+        static_obstacles: List["StaticObstacle"],
+    ) -> ca.MX:
+        if len(static_obstacles) == 0:
+            return ca.MX()
         
+        num_obstacles = len(static_obstacles)
+        horizon = self.horizon
+        
+        centers = ca.DM(
+            np.array([ob.circle.center for ob in static_obstacles]).T
+        )
+        
+        radii = ca.DM(
+            [ob.circle.radius for ob in static_obstacles]
+        )
+        
+        x_diff = ca.repmat(centers[0, :].T, 1, horizon) - ca.repmat(self.symbolic_states_matrix[0, 1:], num_obstacles, 1)
+        y_diff = ca.repmat(centers[1, :].T, 1, horizon) - ca.repmat(self.symbolic_states_matrix[1, 1:], num_obstacles, 1)
+        
+        distances = ca.sqrt(x_diff**2 + y_diff**2) - ca.repmat(radii, 1, horizon)
+        
+        return distances.T
+    
+    def get_obstacle_constraints_bounds(
+        self,
+        inflation_radius: float, num_obstacles: int
+    ) -> Tuple[ca.DM, ca.DM]:
+        constraints_lower_bound = ca.repmat(ca.DM(inflation_radius), (1, self.horizon * num_obstacles))
+        constraints_upper_bound = ca.repmat(ca.DM(ca.inf), (1, self.horizon * num_obstacles))
+        
+        return constraints_lower_bound, constraints_upper_bound
+    
     def get_symbolic_constraints(
         self,
         current_linear_velocity: float,
         current_angular_velocity: float,
+        static_obstacles: List["StaticObstacle"],
+        num_obstacles: int = 0
     ) -> ca.MX:
         symbolic_constraints = MX_vertcat(
             self.get_symbolic_state_constrains(
@@ -205,13 +241,23 @@ class MotionPlanner:
                 current_angular_velocity=current_angular_velocity
             ).reshape((-1, 1)),
         )
+        
+        if len(static_obstacles) > 0:
+            symbolic_constraints = MX_vertcat(
+                symbolic_constraints,
+                self.get_obstacle_constraints_bounds(
+                    static_obstacles=static_obstacles
+                ).reshape((-1, 1))
+            )
+        
         return symbolic_constraints
     
     def get_constraints_bounds(
         self,
         linear_velocity_bounds: Tuple[float, float],
         angular_velocity_bounds: Tuple[float, float],
-        # inflation_radius: float = 0
+        inflation_radius: float = 0,
+        num_obstacles: int = 0,
     ) -> Tuple[ca.DM, ca.DM]:
         (
             state_constraints_lower_bound,
@@ -224,6 +270,22 @@ class MotionPlanner:
         constraints_upper_bound = DM_vertcat(
             state_constraints_upper_bound.reshape((-1, 1))
         )
+        
+        if num_obstacles > 0:
+            (
+                obstacles_constrains_lower_bound,
+                obstacles_constrains_upper_bound,
+            ) = self.get_obstacle_constraints_bounds(
+                inflation_radius=inflation_radius, num_obstacles=num_obstacles
+            )
+            constraints_lower_bound = DM_vertcat(
+                constraints_lower_bound,
+                obstacles_constrains_lower_bound.reshape((-1, 1)),
+            )
+            constraints_upper_bound = DM_vertcat(
+                constraints_upper_bound,
+                obstacles_constrains_upper_bound.reshape((-1, 1))
+            )
         
         return constraints_lower_bound, constraints_upper_bound
     
@@ -238,6 +300,8 @@ class MotionPlanner:
         state_bounds: np.ndarray,
         linear_velocity_bounds: np.ndarray,
         angular_velocity_bounds: np.ndarray,
+        static_obstacles: List["StaticObstacle"] = [],
+        inflation_radius: Optional[float] = None
     ):
         non_linear_program = {
             "x": self.symbolic_optimization_variables,
@@ -245,6 +309,7 @@ class MotionPlanner:
             "g": self.get_symbolic_constraints(
                 current_linear_velocity=current_linear_velocity,
                 current_angular_velocity=current_angular_velocity,
+                static_obstacles=static_obstacles,
             ),
             "p": self.symbolic_terminal_states_vector,
         }
@@ -266,7 +331,9 @@ class MotionPlanner:
             constraints_upper_bounds,
         ) = self.get_constraints_bounds(
             linear_velocity_bounds=linear_velocity_bounds,
-            angular_velocity_bounds=angular_velocity_bounds
+            angular_velocity_bounds=angular_velocity_bounds,
+            inflation_radius=(inflation_radius if inflation_radius is not None else 0),
+            num_obstacles=(static_obstacles),
         )
         
         (

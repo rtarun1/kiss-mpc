@@ -2,10 +2,10 @@ import casadi as ca
 import numpy as np 
 from typing import List, Tuple
 from abc import ABC, abstractmethod
-
+import time
 import cv2
 
-class Circle(ABC):
+class Circle:
     def __init__(self, center: Tuple, radius: float):
         self.radius = radius
         self.center = np.array(center, dtype=np.float64)
@@ -34,3 +34,29 @@ class Circle(ABC):
             )
             - self.radius
         )
+        
+class StaticObstacle:
+    def __init__(self, id: int, circle: Circle):
+        self.id = id
+        self.circle = circle
+        
+    
+    def calculate_matrix_distance(self, state_matrix:np.ndarray):
+        return np.stack(
+            [self.circle.calculate_distance(state) for state in state_matrix.T]
+        )
+        
+    def calculate_symbolic_matrix_distance(self, symbolic_states_matrix: ca.MX):
+        start_time = time.time()
+        result = ca.vertcat(
+            *[
+                self.circle.calculate_symbolic_distance(
+                    symbolic_states_matrix[:2, time_step]
+                )
+                for time_step in range(symbolic_states_matrix.shape[1])
+            ]
+        )
+        duration = time.time() - start_time 
+        print(f"Symbolic distance generation took: {duration:.6f} seconds")
+        
+        return result

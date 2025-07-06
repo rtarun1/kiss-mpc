@@ -22,7 +22,7 @@ from scipy.spatial.transform import (
 from tf2_ros import Buffer, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 from mpc.model import Model
-
+from mpc.obstacle_handler import Circle
 
 def euler_from_quaternion(quat, degree = False):
     return R.from_quat(quat).as_euler('xyz')
@@ -55,6 +55,8 @@ class ROS2Interface(Node):
         
         self.velocity_publisher = self.create_publisher(Twist, '/wheelchair2_base_controller/cmd_vel_unstamped', 10)
         self.marker_publisher = self.create_publisher(MarkerArray, '/future_states', 10)
+        self.circle_marker_pub = self.create_publisher(MarkerArray, '/visualized_obstacles', 10)
+
         self.timer = self.create_timer(0.01, self.run)
     def run(self):
         if not self.waypoints:
@@ -146,6 +148,44 @@ class ROS2Interface(Node):
             radius = 0.3
             circles.append(Circle(center=tuple(center), radius=radius))
         self.static_obstacle_list = circles
+        self.publish_circle_markers()
+
+    
+    def publish_circle_markers(self):
+        marker_array = MarkerArray()
+
+        for i, circle in enumerate(self.static_obstacle_list):
+            marker = Marker()
+            marker.header.frame_id = "map"
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.ns = "obstacles"
+            marker.id = i
+            marker.type = Marker.CYLINDER
+            marker.action = Marker.ADD
+
+            marker.pose.position.x = float(circle.center[0])
+            marker.pose.position.y = float(circle.center[1])
+            marker.pose.position.z = 0.0  # 2D circle in XY plane
+
+            marker.pose.orientation.x = 0.0
+            marker.pose.orientation.y = 0.0
+            marker.pose.orientation.z = 0.0
+            marker.pose.orientation.w = 1.0
+
+            # Circle = cylinder in RViz with height and diameter
+            marker.scale.x = circle.radius * 2
+            marker.scale.y = circle.radius * 2
+            marker.scale.z = 0.05  # Thin "cylinder" (circle)
+
+            marker.color.a = 0.8
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+
+            marker_array.markers.append(marker)
+
+        self.circle_marker_pub.publish(marker_array)
+
             
     def waypoint_callback(self, message: Path):
         try:
