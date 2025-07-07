@@ -55,7 +55,7 @@ class MotionPlanner:
         self.weight_matrix = ca.DM(ca.diagcat(100, 100, 50))
         
         self.negative_linear_velocity_weight = ca.DM(300)
-        self.angular_velocity_weight = ca.DM(0)
+        self.angular_velocity_weight = ca.DM(10)
         
         self.symbolic_states_matrix = create_symbolic_matrix(
             "X", (self.num_states, self.horizon + 1)

@@ -32,7 +32,7 @@ class ROS2Interface(Node):
             horizon=7,
             use_warm_start=True,
             planning_time_step=0.8,
-            linear_velocity_bounds=(0, 0.3),
+            linear_velocity_bounds=(-0.3, 0.3),
             angular_velocity_bounds=(-0.3, 0.3),
             waypoints=[],
         )

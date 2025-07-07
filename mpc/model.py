@@ -120,7 +120,7 @@ class Model(ABC):
         
         
         t2 = time.perf_counter()
-        # print("Rollout Time:", t2 - t1)
+        print("Rollout Time:", t2 - t1)
             
         self.linear_velocity = self.controls_matrix[0, 0]
         self.angular_velocity = self.controls_matrix[1, 0]
