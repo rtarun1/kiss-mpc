@@ -47,8 +47,8 @@ class MotionPlanner:
         self.num_states = self.symbolic_states.numel()
         
         self.symbolic_controls = SX_vertcat(
-            create_symbolic_scalar("vx"),
-            create_symbolic_scalar("vz")
+            create_symbolic_scalar("v"),
+            create_symbolic_scalar("omega")
         )
         self.num_controls = self.symbolic_controls.numel()
         
