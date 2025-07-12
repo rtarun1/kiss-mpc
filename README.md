@@ -8,27 +8,24 @@ This repository implements a velocity-based Model Predictive Control (MPC) plann
 
 We solve the following nonlinear program at each planning step:
 
-###  Objective funtion
+### Objective Function
 
 Minimize tracking error and control effort:
 
 $$
 \begin{aligned}
-\min_{X, U} \quad 
-& \underbrace{\sum_{t=1}^{N} \left[ 
+& \underset{X, U}{\text{min}} & & f(X, U; P) = \sum_{t=1}^{N} \left[ 
     W_x (x_t - x_g)^2 + 
     W_y (y_t - y_g)^2 + 
-    W_\theta (\theta_t - \theta_g)^2
-\right]}_{\text{Goal Tracking}} \\
-& + \underbrace{\sum_{t=0}^{N-1} \left[
-    W_v^- \cdot \min(0, v_t)^2 + 
-    W_v^+ \cdot \max(0, v_t)^2 +
-    W_\omega \cdot \omega_t^2
-\right]}_{\text{Control Penalty (forward + reverse)}}
+    W_\theta (\theta_t - \theta_g)^2 
+\right] \\
+& & & + \sum_{t=0}^{N-1} \left[ 
+    W_v^- \cdot \text{min}(0, v_t)^2 + 
+    W_v^+ \cdot \text{max}(0, v_t)^2 + 
+    W_\omega \cdot \omega_t^2 
+\right]
 \end{aligned}
 $$
-
----
 
 ### Constraints
 
@@ -82,7 +79,7 @@ $$
 
 $$
 \begin{aligned}
-& & & \forall i \in \\{1, \dots, O\\}, \forall t \in \{1, \dots, N\}, \quad \text{dist}(x_t, o_i) \geq I\\
+& \text{Obstacle Avoidance:} & & \forall i \in \{1, \dots, O\}, \forall t \in \{1, \dots, N\}, \quad \text{dist}(x_t, o_i) \geq I \\
 \end{aligned}
 $$
 ---
