@@ -78,9 +78,7 @@ $$
 ## Formulation in code yet to test
 
 $$
-\begin{aligned}
-& \text{Obstacle Avoidance:} & & \forall i \in \{1, \dots, O\}, \forall t \in \{1, \dots, N\}, \quad \text{dist}(x_t, o_i) \geq I \\
-\end{aligned}
+\text{Obstacle Avoidance:} \quad \forall i \in \{1, \dots, O\}, \forall t \in \{1, \dots, N\}, \quad \text{dist}(x_t, o_i) \geq I
 $$
 ---
 
