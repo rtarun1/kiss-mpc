@@ -77,12 +77,11 @@ $$
 
 ## Formulation in code yet to test
 
-- **Obstacle Avoidance**:  
+- **Obstacle Avoidance** For all $t \in$: 
 $$
-\forall i \in \{1, \dots, O\}, \forall t \in \{1, \dots, N\}, \quad \text{dist}(x_t, o_i) \geq I
+\{1, \dots, O\}, \forall t \in \{1, \dots, N\}, \quad \text{dist}(x_t, o_i) \geq I 
 $$
 ---
-
 ## Credit
 
 This work is inspired by the [Casadi-MPC](https://github.com/Smart-Wheelchair-RRC/casadi-mpc) project.
