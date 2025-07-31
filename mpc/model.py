@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from mpc.optimizer import MotionPlanner
 
-class Model(ABC):
+class Model:
     def __init__(
         self,
         id: int,
