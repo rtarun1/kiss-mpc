@@ -9,7 +9,7 @@ class HumanDetectorNode(Node):
     def __init__(self):
         super().__init__("yolov8_human_detector")
 
-        self.declare_parameter('model', 'yolov8x-seg.pt')
+        self.declare_parameter('model', 'yolov8n-seg.pt')
         self.declare_parameter('device', 'cuda')
         self.declare_parameter('threshold', 0.4)
         
