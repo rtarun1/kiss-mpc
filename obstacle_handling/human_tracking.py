@@ -12,15 +12,17 @@ import ros2_numpy
 from sklearn.cluster import DBSCAN
 import cv2
 
-def create_point_cloud_xyz(header, points):
+def create_point_cloud_xyz_intensity(header, points_xyz, intensity):
 
     fields = [
         PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
         PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
         PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+        PointField(name='intensity', offset=12, datatype=PointField.FLOAT32, count=1)
     ]
     
     # Create the PointCloud2 message
+    points = np.hstack((points_xyz, intensity))
     msg = PointCloud2()
     msg.header = header
     msg.height = 1
@@ -30,7 +32,7 @@ def create_point_cloud_xyz(header, points):
     msg.fields = fields
     
     # Set the point_step (size of a single point in bytes)
-    msg.point_step = 12  # 3 fields * 4 bytes/float
+    msg.point_step = 16  # 3 fields * 4 bytes/float
     
     # Set the row_step (total size of a row in bytes)
     msg.row_step = msg.point_step * msg.width
@@ -46,11 +48,11 @@ class HumanDetectorNode(Node):
         super().__init__("yolov8_human_detector")
        
         self.bridge = CvBridge()
-        self.model = YOLO('yolov8n-seg.pt')
+        self.model = YOLO('yolo11n-seg.pt')
         self.model.to('cuda')
         self.conf_threshold = 0.5
         self.target_class = 0
-        self.camera_frame = 'camera1_color_optical_frame'
+        self.camera_frame = 'camera1_link'
         self.lidar_frame = 'livox_frame'
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -104,10 +106,21 @@ class HumanDetectorNode(Node):
             self.get_logger().warn("Waiting for camera intrinsics...")
             return
         
-        transform = self.tf_buffer.lookup_transform(
-            self.camera_frame, self.lidar_frame, rclpy.time.Time()
-        )
+        # transform = self.tf_buffer.lookup_transform(
+        #     self.camera_frame, self.lidar_frame, rclpy.time.Time()
+        # )
         
+        # 1. Hardcode your provided extrinsic values [x, y, z, qx, qy, qz, qw]
+        # This is T_lidar_camera (transforms from camera to lidar)
+        T_lidar_camera_arr = [
+            0.08592069025315134, 0, -0.10986527445745775,
+            0.5041754569158885, 0.510006761582378, 0.495582854424067, 0.5040033761446712
+        ]
+        translation_m = ros2_numpy.geometry.transformations.translation_matrix(T_lidar_camera_arr[0:3])
+        rotation_m = ros2_numpy.geometry.transformations.quaternion_matrix(T_lidar_camera_arr[3:7])
+        T_lidar_camera = np.dot(translation_m, rotation_m)
+        transform_matrix = np.linalg.inv(T_lidar_camera)
+
         cv_image = self.bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
         
         results = self.model.predict(
@@ -137,31 +150,25 @@ class HumanDetectorNode(Node):
 
         pc_dict = ros2_numpy.point_cloud2.point_cloud2_to_array(pc_msg)
         points = pc_dict['xyz']
+        intensity = pc_dict['intensity']
 
-        t = transform.transform.translation
-        q = transform.transform.rotation
-        translation_matrix = ros2_numpy.geometry.transformations.translation_matrix([t.x, t.y, t.z])
-        rotation_matrix = ros2_numpy.geometry.transformations.quaternion_matrix([q.x, q.y, q.z, q.w])
-        transform_matrix = np.dot(translation_matrix, rotation_matrix) # by this we get the transformation between camera and lidar
+        # t = transform.transform.translation
+        # q = transform.transform.rotation
+        # translation_matrix = ros2_numpy.geometry.transformations.translation_matrix([t.x, t.y, t.z])
+        # rotation_matrix = ros2_numpy.geometry.transformations.quaternion_matrix([q.x, q.y, q.z, q.w])
+        # transform_matrix = np.dot(translation_matrix, rotation_matrix) # by this we get the transformation between camera and lidar
 
         points_homogeneous = np.hstack((points, np.ones((points.shape[0], 1))))
         points_camera_frame = (transform_matrix @ points_homogeneous.T).T[:, :3]
 
-        correction_matrix = np.array([[1, 0, 0],
-                                      [0, -1, 0],
-                                      [0, 0, -1]])
-
-        points_standard_optical = (correction_matrix @ points_camera_frame.T).T
-
-        in_front_mask = points_standard_optical[:, 2] > 0
-        points_for_projection = points_standard_optical[in_front_mask]
+        in_front_mask = points_camera_frame[:, 2] > 0
+        points_for_projection = points_camera_frame[in_front_mask]
         original_points_for_publishing = points[in_front_mask]
+        original_intensity_for_publishing = intensity[in_front_mask]
+
 
         if len(points_for_projection) == 0:
             return
-        
-        # points_in_front[:, 0] *= -1
-        # points_in_front[:, 1] *= -1
 
         projected_points = (self.camera_intrinsics @ points_for_projection.T).T
         pixel_coords = (projected_points[:, :2] / projected_points[:, 2:3]).astype(int)
@@ -171,6 +178,8 @@ class HumanDetectorNode(Node):
         
         pixel_coords_on_image = pixel_coords[on_image_mask]
         original_points_on_image = original_points_for_publishing[on_image_mask]
+        original_intensity_on_image = original_intensity_for_publishing[on_image_mask]
+
 
         if len(pixel_coords_on_image) == 0:
             return
@@ -179,10 +188,13 @@ class HumanDetectorNode(Node):
         human_points_mask = (mask_values == 255)
 
         final_points = original_points_on_image[human_points_mask]
+        final_intensity = original_intensity_on_image[human_points_mask]
+
 
         if len(final_points) > 0:
             header = pc_msg.header
-            filtered_pc_msg = create_point_cloud_xyz(header, final_points)
+            filtered_pc_msg = create_point_cloud_xyz_intensity(header, final_points, final_intensity)
+
             self.seg_pc_pub.publish(filtered_pc_msg)
 
 
