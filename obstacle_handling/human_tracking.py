@@ -1,22 +1,114 @@
 #!/usr/bin/env python3
+import os
+import datetime
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, PointCloud2, PointField, CameraInfo
 from sensor_msgs_py import point_cloud2
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from tf2_msgs.msg import TFMessage
 from cv_bridge import CvBridge
 from ultralytics import YOLO
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy, DurabilityPolicy
 import numpy as np
 import message_filters
 import ros2_numpy
 from sklearn.cluster import DBSCAN
 import cv2
+import time
+import rosbag2_py
+from rclpy.serialization import deserialize_message
 
+# QoS Profiles
+qos_profile = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10
+)
 
-class HumanDetectorNode(Node):
+qos_profile = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10
+)
+
+tf_static_qos = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10
+)
+class BagReader(Node):
     def __init__(self):
-        super().__init__("yolo_human_detector")
+        super().__init__("ros_bag_reader")
+
+        self.image_pub = self.create_publisher(
+            Image, '/camera1/camera1/color/image_raw', qos_profile
+        )
+        self.camera_info_pub = self.create_publisher(
+            CameraInfo, '/camera1/camera1/color/camera_info', qos_profile
+        )
+        self.point_cloud_pub = self.create_publisher(
+            PointCloud2, '/livox/lidar', qos_profile
+        )
+
+        self.tf_pub = self.create_publisher(
+            TFMessage, '/tf', 10
+        )
+        self.tf_static_pub = self.create_publisher(
+            TFMessage, '/tf_static', tf_static_qos
+        )
+
+        self.reader = rosbag2_py.SequentialReader()
+        bag_path = os.path.expanduser('/home/container_user/wheelchair2/src/records/2025-08-05_22-54-16/rosbag/rosbag_0.db3')
+        storage_options = rosbag2_py.StorageOptions(uri=bag_path, storage_id='sqlite3')
+        converter_options = rosbag2_py.ConverterOptions('', '')
+        self.reader.open(storage_options, converter_options)
+
+        self.topic = {
+            '/camera1/camera1/color/image_raw': (Image, self.image_pub),
+            '/camera1/camera1/color/camera_info': (CameraInfo, self.camera_info_pub),
+            '/livox/lidar' : (PointCloud2, self.point_cloud_pub),
+            '/tf': (TFMessage, self.tf_pub),
+            '/tf_static': (TFMessage, self.tf_static_pub)
+        }
+
+        self.create_timer(0.1, self.ros_play)
+
+        self.played = False
+
+
+    def ros_play(self):
+        if self.played:
+            return
+        self.played = True
+        self.get_logger().info('Started playing bag')
+        wall_start_time = time.time()
+        bag_start_time = None
+
+        while self.reader.has_next():
+            try:
+                (topic, data, timestamp) = self.reader.read_next()
+                if bag_start_time is None:
+                    bag_start_time = timestamp
+                intended_time = wall_start_time + (timestamp - bag_start_time) / 1e9
+                now = time.time()
+                sleep_time = intended_time - now
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                if topic in self.topic:
+                    message_type, publisher = self.topic[topic]
+                    msg = deserialize_message(data, message_type)
+                    publisher.publish(msg)
+
+            except Exception as e:
+                self.get_logger().error(f'Error reading bag: {e}')
+                break
+
+class DetectorNode(Node):
+    def __init__(self):
+        super().__init__("yolo_detector")
        
         self.bridge = CvBridge()
         self.model = YOLO('yolo11n-seg.pt')
@@ -26,7 +118,7 @@ class HumanDetectorNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.camera_intrinsics = None
-        
+        self.frame_count = 0
         #subs
         self.image_sub = message_filters.Subscriber(
             self,
@@ -89,11 +181,11 @@ class HumanDetectorNode(Node):
 
         cv_image = self.bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
         
-        results = self.model.predict(
+        results = self.model.track(
             source = cv_image,
             conf = self.conf_threshold,
             classes = [self.target_class],
-            verbose=False,
+            persist=True,
         )
         
         if results[0].masks is None or len(results[0].masks) == 0:
@@ -102,18 +194,13 @@ class HumanDetectorNode(Node):
         
         self.get_logger().info(f"Detected {len(results[0].boxes)} person(s). Publishing filtered point cloud.")
 
-        combined_mask = np.zeros((image_msg.height, image_msg.width), dtype=np.uint8)
-        target_shape = (image_msg.width, image_msg.height)
-
-        for mask_data in results[0].masks.data:
-            small_mask = mask_data.cpu().numpy().astype(np.uint8)
-            resized_mask = cv2.resize(small_mask, target_shape, interpolation=cv2.INTER_NEAREST)
-            combined_mask = np.maximum(combined_mask, resized_mask * 255)
-
-        segmentation_image = results[0].plot(conf=False, labels=False, boxes=False, masks=True)
+        segmentation_image = results[0].plot(conf=False, labels=True, boxes=True, masks=True)
         segmentation_msg = self.bridge.cv2_to_imgmsg(segmentation_image, encoding="bgr8")
         segmentation_msg.header = image_msg.header 
         self.seg_image_pub.publish(segmentation_msg)
+
+        combined_mask = np.zeros((image_msg.height, image_msg.width), dtype=np.uint8)
+        target_shape = (image_msg.width, image_msg.height)
 
         cloud_array = ros2_numpy.point_cloud2.pointcloud2_to_array(pc_msg)
 
@@ -127,8 +214,7 @@ class HumanDetectorNode(Node):
         in_front_mask = points_camera_frame[:, 2] > 0
         points_for_projection = points_camera_frame[in_front_mask]
         original_points_for_publishing = points[in_front_mask]
-        if intensities is not None:
-            intensities_in_front = intensities[in_front_mask]
+        intensities_in_front = intensities[in_front_mask]
         
         if len(points_for_projection) == 0:
             return
@@ -141,20 +227,30 @@ class HumanDetectorNode(Node):
         
         pixel_coords_on_image = pixel_coords[on_image_mask]
         original_points_on_image = original_points_for_publishing[on_image_mask]
-
-        if intensities is not None:
-            intensities_on_image = intensities_in_front[on_image_mask]
+        intensities_on_image = intensities_in_front[on_image_mask]
         
         if len(pixel_coords_on_image) == 0:
             return
         
+        # masks = results[0].masks.data
+        # track_ids = results[0].boxes.id.int().cpu().numpy()
+        # all_tracked_points = []
+
+        # for i, track_id in enumerate(track_ids):
+        #     small_mask = masks[i].cpu().numpy().astype(np.int8)
+        #     resized_mask = cv2.resize(small_mask, target_shape, interpolation=cv2.INTER_NEAREST)
+        #     mask_values = resized_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
+        #     human_points_mask = (mask_values == 1)
+
+        for mask_data in results[0].masks.data:
+            small_mask = mask_data.cpu().numpy().astype(np.uint8)
+            resized_mask = cv2.resize(small_mask, target_shape, interpolation=cv2.INTER_NEAREST)
+            combined_mask = np.maximum(combined_mask, resized_mask * 255)
         mask_values = combined_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
         human_points_mask = (mask_values == 255)
 
         final_points = original_points_on_image[human_points_mask]
-
-        if intensities is not None:
-            final_intensities = intensities_on_image[human_points_mask]
+        final_intensities = intensities_on_image[human_points_mask]
 
         if len(final_points) > 0:
             dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
@@ -163,25 +259,44 @@ class HumanDetectorNode(Node):
             output_array['x'] = final_points[:, 0]
             output_array['y'] = final_points[:, 1]
             output_array['z'] = final_points[:, 2]
-            output_array['intensity'] = final_intensities
+            output_array['intensity'] = final_intensities            
             final_pc_msg = ros2_numpy.point_cloud2.array_to_pointcloud2(
                 output_array, 
                 stamp=pc_msg.header.stamp, 
                 frame_id=pc_msg.header.frame_id
             )
-
             self.seg_pc_pub.publish(final_pc_msg)
-
+        
+        self.frame_count += 1
+        
 
 def main(args=None):
+    RUN_WITH_BAG = False
+
     rclpy.init(args=args)
-    node = HumanDetectorNode()
+
+    humandetector = DetectorNode()
+
+    executor = rclpy.executors.MultiThreadedExecutor()
+    executor.add_node(humandetector)
+
+    bag_reader = None
+    if RUN_WITH_BAG:
+        print("RUNNING IN BAG PLAYBACK MODE")
+        bag_reader = BagReader()
+        executor.add_node(bag_reader)
+    else:
+        print("RUNNING IN LIVE MODE (DETECTOR ONLY)")
+
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
-        node.destroy_node()
+        executor.shutdown()
+        if bag_reader is not None:
+            bag_reader.destroy_node()
+        humandetector.destroy_node()
         rclpy.shutdown()
 
 if __name__ == "__main__":
