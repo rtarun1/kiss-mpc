@@ -118,7 +118,11 @@ class DetectorNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.camera_intrinsics = None
+        self.dbscan_eps = 0.5
+        self.dbscan_min_samples = 10
+
         self.frame_count = 0
+
         #subs
         self.image_sub = message_filters.Subscriber(
             self,
@@ -180,7 +184,6 @@ class DetectorNode(Node):
         # print(transform_matrix)
 
         cv_image = self.bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
-        
         results = self.model.track(
             source = cv_image,
             conf = self.conf_threshold,
@@ -191,7 +194,7 @@ class DetectorNode(Node):
         if results[0].masks is None or len(results[0].masks) == 0:
             self.get_logger().info("No person detected in the frame.")
             return
-        
+         
         self.get_logger().info(f"Detected {len(results[0].boxes)} person(s). Publishing filtered point cloud.")
 
         segmentation_image = results[0].plot(conf=False, labels=True, boxes=True, masks=True)
@@ -200,13 +203,9 @@ class DetectorNode(Node):
         self.seg_image_pub.publish(segmentation_msg)
 
         combined_mask = np.zeros((image_msg.height, image_msg.width), dtype=np.uint8)
-        target_shape = (image_msg.width, image_msg.height)
 
         cloud_array = ros2_numpy.point_cloud2.pointcloud2_to_array(pc_msg)
-
         points = ros2_numpy.point_cloud2.get_xyz_points(cloud_array, remove_nans=False)
-        intensities = None
-        intensities = cloud_array['intensity']
 
         points_homogeneous = np.hstack((points, np.ones((points.shape[0], 1))))
         points_camera_frame = (transform_matrix @ points_homogeneous.T).T[:, :3]
@@ -214,7 +213,6 @@ class DetectorNode(Node):
         in_front_mask = points_camera_frame[:, 2] > 0
         points_for_projection = points_camera_frame[in_front_mask]
         original_points_for_publishing = points[in_front_mask]
-        intensities_in_front = intensities[in_front_mask]
         
         if len(points_for_projection) == 0:
             return
@@ -227,39 +225,40 @@ class DetectorNode(Node):
         
         pixel_coords_on_image = pixel_coords[on_image_mask]
         original_points_on_image = original_points_for_publishing[on_image_mask]
-        intensities_on_image = intensities_in_front[on_image_mask]
         
         if len(pixel_coords_on_image) == 0:
             return
         
-        # masks = results[0].masks.data
-        # track_ids = results[0].boxes.id.int().cpu().numpy()
-        # all_tracked_points = []
+        masks = results[0].masks.data
+        track_ids = results[0].boxes.id.int().cpu().numpy()
+        
+        # Use a dictionary to map track_id to its points. This is robust.
+        human_points_map = {tid: [] for tid in track_ids}
 
-        # for i, track_id in enumerate(track_ids):
-        #     small_mask = masks[i].cpu().numpy().astype(np.int8)
-        #     resized_mask = cv2.resize(small_mask, target_shape, interpolation=cv2.INTER_NEAREST)
-        #     mask_values = resized_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
-        #     human_points_mask = (mask_values == 1)
+        for i, track_id in enumerate(track_ids):
+            small_mask = masks[i].cpu().numpy().astype(np.uint8)
+            resized_mask = cv2.resize(small_mask, (image_msg.width, image_msg.height), interpolation=cv2.INTER_NEAREST)
+            
+            mask_values = resized_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
+            person_points_mask = (mask_values == 1)
+            
+            person_points_3d = original_points_on_image[person_points_mask]
+            
+            if len(person_points_3d) > 0:
+                human_points_map[track_id].extend(person_points_3d.tolist())
 
-        for mask_data in results[0].masks.data:
-            small_mask = mask_data.cpu().numpy().astype(np.uint8)
-            resized_mask = cv2.resize(small_mask, target_shape, interpolation=cv2.INTER_NEAREST)
-            combined_mask = np.maximum(combined_mask, resized_mask * 255)
-        mask_values = combined_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
-        human_points_mask = (mask_values == 255)
+        all_human_points_list = []
+        for track_id, points in human_points_map.items():
+            all_human_points_list.extend(points)
 
-        final_points = original_points_on_image[human_points_mask]
-        final_intensities = intensities_on_image[human_points_mask]
-
-        if len(final_points) > 0:
+        if len(all_human_points_list) > 0:
             dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
-            dtype.append(('intensity', 'u2'))
+            final_points = np.vstack(all_human_points_list)
             output_array = np.zeros(len(final_points), dtype=dtype)
             output_array['x'] = final_points[:, 0]
             output_array['y'] = final_points[:, 1]
             output_array['z'] = final_points[:, 2]
-            output_array['intensity'] = final_intensities            
+
             final_pc_msg = ros2_numpy.point_cloud2.array_to_pointcloud2(
                 output_array, 
                 stamp=pc_msg.header.stamp, 
@@ -268,7 +267,6 @@ class DetectorNode(Node):
             self.seg_pc_pub.publish(final_pc_msg)
         
         self.frame_count += 1
-        
 
 def main(args=None):
     RUN_WITH_BAG = False
