@@ -4,6 +4,8 @@ import datetime
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, PointCloud2, PointField, CameraInfo
+from visualization_msgs.msg import Marker, MarkerArray
+
 from sensor_msgs_py import point_cloud2
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -39,6 +41,7 @@ tf_static_qos = QoSProfile(
     history=HistoryPolicy.KEEP_LAST,
     depth=10
 )
+
 class BagReader(Node):
     def __init__(self):
         super().__init__("ros_bag_reader")
@@ -52,6 +55,7 @@ class BagReader(Node):
         self.point_cloud_pub = self.create_publisher(
             PointCloud2, '/livox/lidar', qos_profile
         )
+        
 
         self.tf_pub = self.create_publisher(
             TFMessage, '/tf', 10
@@ -118,7 +122,7 @@ class DetectorNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.camera_intrinsics = None
-        self.dbscan_eps = 0.5
+        self.dbscan_eps = 0.1
         self.dbscan_min_samples = 10
 
         self.frame_count = 0
@@ -149,6 +153,8 @@ class DetectorNode(Node):
             self.camera_info_callback,
             1
         )
+        #pubs
+        self.marker_pub = self.create_publisher(MarkerArray, '/human_cluster_markers', 10)
 
         self.seg_pc_pub = self.create_publisher(
             PointCloud2,
@@ -160,113 +166,151 @@ class DetectorNode(Node):
             "/segmentation/image",
             10
         )
+
     def camera_info_callback(self, msg):
         self.camera_intrinsics = np.array(msg.k).reshape((3, 3))
         self.get_logger().info("Camera intrinsics received.")
         self.destroy_subscription(self.camera_info_sub)
 
     def synchronized_callback(self, image_msg, pc_msg):
-
         if self.camera_intrinsics is None:
             self.get_logger().warn("Waiting for camera intrinsics...")
             return
         
-        # 1. Hardcode your provided extrinsic values [x, y, z, qx, qy, qz, qw]
-        # This is T_lidar_camera (transforms from camera to lidar)
         T_lidar_camera_arr = [
-            0.08592069025315134, 0, -0.10986527445745775,
-            0.5041754569158885, 0.510006761582378, 0.495582854424067, 0.5040033761446712
+            0.08592, 0.0, -0.10986, # Translation (x, y, z)
+            0.50417, 0.51000, 0.49558, 0.50400 # Quaternion (qx, qy, qz, qw)
         ]
         translation_m = ros2_numpy.geometry.transformations.translation_matrix(T_lidar_camera_arr[0:3])
         rotation_m = ros2_numpy.geometry.transformations.quaternion_matrix(T_lidar_camera_arr[3:7])
         T_lidar_camera = np.dot(translation_m, rotation_m)
         transform_matrix = np.linalg.inv(T_lidar_camera)
-        # print(transform_matrix)
 
         cv_image = self.bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
         results = self.model.track(
-            source = cv_image,
-            conf = self.conf_threshold,
-            classes = [self.target_class],
+            source=cv_image,
+            conf=self.conf_threshold,
+            classes=[self.target_class],
             persist=True,
         )
         
-        if results[0].masks is None or len(results[0].masks) == 0:
-            self.get_logger().info("No person detected in the frame.")
-            return
-         
-        self.get_logger().info(f"Detected {len(results[0].boxes)} person(s). Publishing filtered point cloud.")
+        track_ids = []
+        if results[0].masks is not None and len(results[0].masks) > 0 and results[0].boxes.id is not None:
+            segmentation_image = results[0].plot(conf=False, labels=True, boxes=True, masks=True)
+            self.seg_image_pub.publish(self.bridge.cv2_to_imgmsg(segmentation_image, "bgr8"))
 
-        segmentation_image = results[0].plot(conf=False, labels=True, boxes=True, masks=True)
-        segmentation_msg = self.bridge.cv2_to_imgmsg(segmentation_image, encoding="bgr8")
-        segmentation_msg.header = image_msg.header 
-        self.seg_image_pub.publish(segmentation_msg)
+            cloud_array = ros2_numpy.point_cloud2.pointcloud2_to_array(pc_msg)
+            points = ros2_numpy.point_cloud2.get_xyz_points(cloud_array, remove_nans=True)
 
-        combined_mask = np.zeros((image_msg.height, image_msg.width), dtype=np.uint8)
+            points_homogeneous = np.hstack((points, np.ones((points.shape[0], 1))))
+            points_camera_frame = (transform_matrix @ points_homogeneous.T).T[:, :3]
 
-        cloud_array = ros2_numpy.point_cloud2.pointcloud2_to_array(pc_msg)
-        points = ros2_numpy.point_cloud2.get_xyz_points(cloud_array, remove_nans=False)
+            in_front_mask = points_camera_frame[:, 2] > 0
+            points_for_projection = points_camera_frame[in_front_mask]
+            original_points_for_publishing = points[in_front_mask]
+            
+            if len(points_for_projection) > 0:
+                projected_points = (self.camera_intrinsics @ points_for_projection.T).T
+                pixel_coords = (projected_points[:, :2] / projected_points[:, 2:3]).astype(int)
 
-        points_homogeneous = np.hstack((points, np.ones((points.shape[0], 1))))
-        points_camera_frame = (transform_matrix @ points_homogeneous.T).T[:, :3]
+                on_image_mask = (pixel_coords[:, 0] >= 0) & (pixel_coords[:, 0] < image_msg.width) & \
+                                (pixel_coords[:, 1] >= 0) & (pixel_coords[:, 1] < image_msg.height)
+                
+                pixel_coords_on_image = pixel_coords[on_image_mask]
+                original_points_on_image = original_points_for_publishing[on_image_mask]
+                
+                if len(pixel_coords_on_image) > 0:
+                    masks = results[0].masks.data
+                    track_ids = results[0].boxes.id.int().cpu().numpy()
+                    
+                    human_points_map = {tid: [] for tid in track_ids}
 
-        in_front_mask = points_camera_frame[:, 2] > 0
-        points_for_projection = points_camera_frame[in_front_mask]
-        original_points_for_publishing = points[in_front_mask]
-        
-        if len(points_for_projection) == 0:
-            return
+                    for i, track_id in enumerate(track_ids):
+                        small_mask = masks[i].cpu().numpy().astype(np.uint8)
+                        resized_mask = cv2.resize(small_mask, (image_msg.width, image_msg.height), interpolation=cv2.INTER_NEAREST)
+                        
+                        mask_values = resized_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
+                        person_points_mask = (mask_values == 1)
+                        
+                        person_points_3d = original_points_on_image[person_points_mask]
+                        
+                        if len(person_points_3d) > 0:
+                            human_points_map[track_id].extend(person_points_3d.tolist())
 
-        projected_points = (self.camera_intrinsics @ points_for_projection.T).T
-        pixel_coords = (projected_points[:, :2] / projected_points[:, 2:3]).astype(int)
+                    all_human_points_list = []
+                    cluster_centers = []
+                    valid_track_ids = []
 
-        on_image_mask = (pixel_coords[:, 0] >= 0) & (pixel_coords[:, 0] < image_msg.width) & \
-                        (pixel_coords[:, 1] >= 0) & (pixel_coords[:, 1] < image_msg.height)
-        
-        pixel_coords_on_image = pixel_coords[on_image_mask]
-        original_points_on_image = original_points_for_publishing[on_image_mask]
-        
-        if len(pixel_coords_on_image) == 0:
-            return
-        
-        masks = results[0].masks.data
-        track_ids = results[0].boxes.id.int().cpu().numpy()
-        
-        # Use a dictionary to map track_id to its points. This is robust.
-        human_points_map = {tid: [] for tid in track_ids}
+                    for track_id, points_list in human_points_map.items():
+                        if len(points_list) < self.dbscan_min_samples:
+                            continue
 
+                        person_points_np = np.array(points_list)
+                        all_human_points_list.append(person_points_np)
+
+                        db = DBSCAN(eps=self.dbscan_eps, min_samples=self.dbscan_min_samples).fit(person_points_np)
+                        labels = db.labels_
+
+                        unique_labels, counts = np.unique(labels[labels != -1], return_counts=True)
+                        
+                        if len(counts) == 0:
+                            center = np.mean(person_points_np, axis=0)
+                        else:
+                            largest_cluster_label = unique_labels[np.argmax(counts)]
+                            cluster_points = person_points_np[labels == largest_cluster_label]
+                            center = np.mean(cluster_points, axis=0)
+                        
+                        cluster_centers.append(center)
+                        valid_track_ids.append(track_id)
+                        # self.get_logger().info(f"Center for Human ID {track_id}: [x={center[0]:.2f}, y={center[1]:.2f}, z={center[2]:.2f}]")
+                    
+                    self.publish_cluster_markers(valid_track_ids, cluster_centers, pc_msg.header)
+
+                    if all_human_points_list:
+                        final_points = np.vstack(all_human_points_list)
+                        dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
+                        output_array = np.zeros(len(final_points), dtype=dtype)
+                        output_array['x'] = final_points[:, 0]
+                        output_array['y'] = final_points[:, 1]
+                        output_array['z'] = final_points[:, 2]
+
+                        final_pc_msg = ros2_numpy.point_cloud2.array_to_pointcloud2(
+                            output_array, 
+                            stamp=pc_msg.header.stamp, 
+                            frame_id=pc_msg.header.frame_id
+                        )
+                        self.seg_pc_pub.publish(final_pc_msg)
+        else:
+            self.get_logger().info("No tracked person detected in the frame.")
+            self.publish_cluster_markers([], [], pc_msg.header)
+
+    def publish_cluster_markers(self,track_ids, cluster_centers, header):
+        marker_array = MarkerArray()
+        current_track_ids = set(track_ids)
         for i, track_id in enumerate(track_ids):
-            small_mask = masks[i].cpu().numpy().astype(np.uint8)
-            resized_mask = cv2.resize(small_mask, (image_msg.width, image_msg.height), interpolation=cv2.INTER_NEAREST)
-            
-            mask_values = resized_mask[pixel_coords_on_image[:, 1], pixel_coords_on_image[:, 0]]
-            person_points_mask = (mask_values == 1)
-            
-            person_points_3d = original_points_on_image[person_points_mask]
-            
-            if len(person_points_3d) > 0:
-                human_points_map[track_id].extend(person_points_3d.tolist())
-
-        all_human_points_list = []
-        for track_id, points in human_points_map.items():
-            all_human_points_list.extend(points)
-
-        if len(all_human_points_list) > 0:
-            dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4')]
-            final_points = np.vstack(all_human_points_list)
-            output_array = np.zeros(len(final_points), dtype=dtype)
-            output_array['x'] = final_points[:, 0]
-            output_array['y'] = final_points[:, 1]
-            output_array['z'] = final_points[:, 2]
-
-            final_pc_msg = ros2_numpy.point_cloud2.array_to_pointcloud2(
-                output_array, 
-                stamp=pc_msg.header.stamp, 
-                frame_id=pc_msg.header.frame_id
-            )
-            self.seg_pc_pub.publish(final_pc_msg)
+            center = cluster_centers[i]
+            marker = Marker()
+            marker.header = header
+            marker.ns = "human_centers"
+            marker.id = int(track_id)
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.pose.position.x = float(center[0])
+            marker.pose.position.y = float(center[1])
+            marker.pose.position.z = float(center[2])
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = 0.3
+            marker.scale.y = 0.3
+            marker.scale.z = 0.3
+            marker.color.a = 1.0
+            marker.color.r = 0.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+            marker_array.markers.append(marker)
         
-        self.frame_count += 1
+        self.marker_pub.publish(marker_array)
+
+        self.last_tracked_ids = current_track_ids
 
 def main(args=None):
     RUN_WITH_BAG = False
