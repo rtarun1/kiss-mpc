@@ -122,6 +122,7 @@ class DetectorNode(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.camera_intrinsics = None
+        self.last_tracked_ids = set()
         self.dbscan_eps = 0.1
         self.dbscan_min_samples = 10
 
@@ -262,7 +263,7 @@ class DetectorNode(Node):
                         
                         cluster_centers.append(center)
                         valid_track_ids.append(track_id)
-                        # self.get_logger().info(f"Center for Human ID {track_id}: [x={center[0]:.2f}, y={center[1]:.2f}, z={center[2]:.2f}]")
+                        self.get_logger().info(f"Center for Human ID {track_id}: [x={center[0]:.2f}, y={center[1]:.2f}]")
                     
                     self.publish_cluster_markers(valid_track_ids, cluster_centers, pc_msg.header)
 
@@ -287,29 +288,50 @@ class DetectorNode(Node):
     def publish_cluster_markers(self,track_ids, cluster_centers, header):
         marker_array = MarkerArray()
         current_track_ids = set(track_ids)
+
+        # --- Delete Old Markers ---
+        ids_to_delete = self.last_tracked_ids - current_track_ids
+        for del_id in ids_to_delete:
+            # Command RViz to delete the marker
+            marker = Marker()
+            marker.header = header
+            marker.ns = "human_centers"
+            marker.id = int(del_id)
+            marker.action = Marker.DELETE
+            marker_array.markers.append(marker)
+
+        # --- Add/Update Current Markers ---
+        # Use the track_id as the marker's permanent ID.
         for i, track_id in enumerate(track_ids):
             center = cluster_centers[i]
             marker = Marker()
             marker.header = header
             marker.ns = "human_centers"
             marker.id = int(track_id)
-            marker.type = Marker.SPHERE
+            # Use a CYLINDER to create a flat disc
+            marker.type = Marker.CYLINDER
             marker.action = Marker.ADD
+            # Position the disc using only X and Y from the center
             marker.pose.position.x = float(center[0])
             marker.pose.position.y = float(center[1])
-            marker.pose.position.z = float(center[2])
+            # Set a constant Z to place the disc on a ground plane
+            marker.pose.position.z = -0.5 
             marker.pose.orientation.w = 1.0
-            marker.scale.x = 0.3
-            marker.scale.y = 0.3
-            marker.scale.z = 0.3
+            # Set the diameter of the disc with X and Y scale
+            marker.scale.x = 0.5
+            marker.scale.y = 0.5
+            # Set a very small height to make the cylinder flat
+            marker.scale.z = 0.01
             marker.color.a = 1.0
-            marker.color.r = 0.0
-            marker.color.g = 1.0
+            marker.color.r = 1.0 # Red
+            marker.color.g = 0.0
             marker.color.b = 0.0
             marker_array.markers.append(marker)
         
+        # Publish the full array of ADD and DELETE commands.
         self.marker_pub.publish(marker_array)
 
+        # Update the set of last seen IDs for the next frame.
         self.last_tracked_ids = current_track_ids
 
 def main(args=None):
