@@ -3,9 +3,8 @@ import os
 import datetime
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image, PointCloud2, PointField, CameraInfo
+from sensor_msgs.msg import Image, PointCloud2, CameraInfo
 from visualization_msgs.msg import Marker, MarkerArray
-
 from sensor_msgs_py import point_cloud2
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -21,6 +20,8 @@ import cv2
 import time
 import rosbag2_py
 from rclpy.serialization import deserialize_message
+from geometry_msgs.msg import PointStamped
+from tf2_geometry_msgs import do_transform_point
 
 # QoS Profiles
 qos_profile = QoSProfile(
@@ -56,7 +57,6 @@ class BagReader(Node):
             PointCloud2, '/livox/lidar', qos_profile
         )
         
-
         self.tf_pub = self.create_publisher(
             TFMessage, '/tf', 10
         )
@@ -123,16 +123,19 @@ class DetectorNode(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.camera_intrinsics = None
         self.last_tracked_ids = set()
-        self.dbscan_eps = 0.1
+        self.dbscan_eps = 0.08
         self.dbscan_min_samples = 10
+        self.rollout_times = []
 
-        self.frame_count = 0
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+        
 
         #subs
         self.image_sub = message_filters.Subscriber(
             self,
             Image,
-            "/camera1/camera1/color/image_raw",   
+            "/camera/camera/color/image_raw",   
         )
 
         self.lidar_sub = message_filters.Subscriber(
@@ -150,7 +153,7 @@ class DetectorNode(Node):
 
         self.camera_info_sub = self.create_subscription(
             CameraInfo,
-            '/camera1/camera1/color/camera_info',
+            '/camera/camera/color/camera_info',
             self.camera_info_callback,
             1
         )
@@ -178,6 +181,14 @@ class DetectorNode(Node):
             self.get_logger().warn("Waiting for camera intrinsics...")
             return
         
+        try:
+            transform_lidar_to_map = self.tf_buffer.lookup_transform('map', pc_msg.header.frame_id, rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=1.0))
+        except Exception as e:
+            self.get_logger().error(f"Error looking up transform: {e}")
+            return
+
+        step_start = time.perf_counter()
+
         T_lidar_camera_arr = [
             0.08592, 0.0, -0.10986, # Translation (x, y, z)
             0.50417, 0.51000, 0.49558, 0.50400 # Quaternion (qx, qy, qz, qw)
@@ -188,6 +199,7 @@ class DetectorNode(Node):
         transform_matrix = np.linalg.inv(T_lidar_camera)
 
         cv_image = self.bridge.imgmsg_to_cv2(image_msg, desired_encoding="bgr8")
+
         results = self.model.track(
             source=cv_image,
             conf=self.conf_threshold,
@@ -239,7 +251,7 @@ class DetectorNode(Node):
                             human_points_map[track_id].extend(person_points_3d.tolist())
 
                     all_human_points_list = []
-                    cluster_centers = []
+                    cluster_centers_map = []
                     valid_track_ids = []
 
                     for track_id, points_list in human_points_map.items():
@@ -260,12 +272,24 @@ class DetectorNode(Node):
                             largest_cluster_label = unique_labels[np.argmax(counts)]
                             cluster_points = person_points_np[labels == largest_cluster_label]
                             center = np.mean(cluster_points, axis=0)
-                        
-                        cluster_centers.append(center)
+
+                        point_stamped = PointStamped()
+                        point_stamped.header = pc_msg.header
+                        point_stamped.point.x = float(center[0])
+                        point_stamped.point.y = float(center[1])
+                        point_stamped.point.z = float(center[2])
+
+                        center_map = do_transform_point(point_stamped, transform_lidar_to_map)
+
+                        cluster_centers_map.append(center_map.point)
                         valid_track_ids.append(track_id)
+                        
                         self.get_logger().info(f"Center for Human ID {track_id}: [x={center[0]:.2f}, y={center[1]:.2f}]")
-                    
-                    self.publish_cluster_markers(valid_track_ids, cluster_centers, pc_msg.header)
+                                      
+                    self.rollout_times.append(time.perf_counter() - step_start) 
+                    self.rollout_times[-1] *= 1000
+                    self.get_logger().info(f"Rollout time for Human ID {track_id}: {self.rollout_times[-1]:.4f} ms")
+                    self.publish_cluster_markers(valid_track_ids, cluster_centers_map, pc_msg.header)
 
                     if all_human_points_list:
                         final_points = np.vstack(all_human_points_list)
@@ -285,53 +309,43 @@ class DetectorNode(Node):
             self.get_logger().info("No tracked person detected in the frame.")
             self.publish_cluster_markers([], [], pc_msg.header)
 
-    def publish_cluster_markers(self,track_ids, cluster_centers, header):
+    def publish_cluster_markers(self, track_ids, cluster_centers, header):
         marker_array = MarkerArray()
         current_track_ids = set(track_ids)
 
-        # --- Delete Old Markers ---
         ids_to_delete = self.last_tracked_ids - current_track_ids
         for del_id in ids_to_delete:
-            # Command RViz to delete the marker
             marker = Marker()
-            marker.header = header
+            marker.header.frame_id = "map"
+            marker.header.stamp = self.get_clock().now().to_msg()
             marker.ns = "human_centers"
             marker.id = int(del_id)
             marker.action = Marker.DELETE
             marker_array.markers.append(marker)
 
-        # --- Add/Update Current Markers ---
-        # Use the track_id as the marker's permanent ID.
         for i, track_id in enumerate(track_ids):
             center = cluster_centers[i]
             marker = Marker()
-            marker.header = header
+            marker.header.frame_id = "map" # Publish marker in the map frame
+            marker.header.stamp = self.get_clock().now().to_msg()
             marker.ns = "human_centers"
             marker.id = int(track_id)
-            # Use a CYLINDER to create a flat disc
             marker.type = Marker.CYLINDER
             marker.action = Marker.ADD
-            # Position the disc using only X and Y from the center
-            marker.pose.position.x = float(center[0])
-            marker.pose.position.y = float(center[1])
-            # Set a constant Z to place the disc on a ground plane
+            marker.pose.position.x = float(center.x)
+            marker.pose.position.y = float(center.y)
             marker.pose.position.z = -0.5 
             marker.pose.orientation.w = 1.0
-            # Set the diameter of the disc with X and Y scale
             marker.scale.x = 0.5
             marker.scale.y = 0.5
-            # Set a very small height to make the cylinder flat
             marker.scale.z = 0.01
             marker.color.a = 1.0
-            marker.color.r = 1.0 # Red
+            marker.color.r = 1.0
             marker.color.g = 0.0
             marker.color.b = 0.0
             marker_array.markers.append(marker)
         
-        # Publish the full array of ADD and DELETE commands.
         self.marker_pub.publish(marker_array)
-
-        # Update the set of last seen IDs for the next frame.
         self.last_tracked_ids = current_track_ids
 
 def main(args=None):
