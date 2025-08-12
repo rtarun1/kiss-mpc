@@ -1,0 +1,37 @@
+name: mpc
+channels:
+  - rapidsai
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - cudf=25.8
+  - dask-cudf=25.8
+  - cuml=25.8
+  - cugraph=25.8
+  - nx-cugraph=25.8
+  - cuxfilter=25.8
+  - cucim=25.8
+  - pylibraft=25.8
+  - raft-dask=25.8
+  - cuvs=25.8
+  - pip
+  - pip:
+    - numpy==1.24.2
+    - scipy
+    - casadi
+    - pandas==2.3.0
+    - matplotlib
+    - jupyterlab
+    - scikit-learn
+    - opencv-python==4.11.0.86
+    - open3d==0.19.0
+    - pyquaternion==0.9.9
+    - torch==2.7.1
+    - pillow
+    - torchvision==0.22.1
+    - torchmetrics
+    - torchsummary
+    - ultralytics==8.3.172
+    - ros2_numpy==0.0.4
