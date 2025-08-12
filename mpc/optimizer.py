@@ -52,7 +52,7 @@ class MotionPlanner:
         )
         self.num_controls = self.symbolic_controls.numel()
         
-        self.weight_matrix = ca.DM(ca.diagcat(100, 100, 50))
+        self.weight_matrix = ca.DM(ca.diagcat(100, 100, 50)) #goal reaching weight 
         
         self.negative_linear_velocity_weight = ca.DM(300)
         self.angular_velocity_weight = ca.DM(10)
@@ -159,9 +159,8 @@ class MotionPlanner:
             ca.DM.zeros((3, self.horizon + 1)),
         )
     def get_symbolic_state_constrains(
-        self, 
-        current_linear_velocity: float, 
-        current_angular_velocity: float) -> ca.MX:
+        self
+        ) -> ca.MX:
 
             current_velocities = self.symbolic_controls_matrix
             
@@ -194,6 +193,70 @@ class MotionPlanner:
                 state_update_constraints
             )
         
+    def get_symbolic_obstacle_constraints(self, static_obstacles, dynamic_obstacles) -> ca.MX:
+        all_obstacles = static_obstacles + dynamic_obstacles
+
+        if (
+            not all(
+                isinstance(all_obstacles[i].geometry, Circle)
+                for i in range(len(all_obstacles))
+            )
+            or len(all_obstacles) == 0
+        ):
+            return MX_horzcat(
+                *[
+                    obstacle.calculate_symbolic_matrix_distance(
+                        symbolic_states_matrix=self.symbolic_states_matrix[:, 1:]
+                    )
+                    for obstacle in all_obstacles
+                ]
+            )
+        
+        num_obstacles = len(all_obstacles)
+
+        centers = DM_horzcat(
+            *[all_obstacles[i].geometry.center for i in range(len(all_obstacles))]
+        )
+
+        x_differences = ca.repmat(centers[0, :].T, 1, self.horizon)
+        - ca.repmat(self.symbolic_states_matrix[0, 1:], num_obstacles, 1)
+
+        y_differences = ca.repmat(centers[1, :].T, 1, self.horizon)
+        - ca.repmat(self.symbolic_states_matrix[1, 1:], num_obstacles, 1)
+
+        distances = (ca.sqrt(x_differences**2 + y_differences**2)).T
+
+        if len(static_obstacles) > 0:
+            static_radius_vector = ca.repmat(
+                ca.DM(static_obstacles[0].geometry.radius),
+                (self.horizon, len(static_obstacles)),
+            )
+        else:
+            static_radius_vector = ca.DM.zeros((self.horizon, 0))
+
+        if len(dynamic_obstacles) > 0:
+            dynamic_radius_vector = ca.repmat(
+                ca.DM(dynamic_obstacles[0].geometry.radius),
+                (self.horizon, len(dynamic_obstacles)),
+            )
+        else:
+            dynamic_radius_vector = ca.DM.zeros((self.horizon, 0))
+
+        distances = distances - ca.horzcat(
+            static_radius_vector,
+            dynamic_radius_vector,
+        )
+
+        return distances
+    
+    def get_obstacle_constraints_bounds(self, inflation_radius, num_obstacles) -> Tuple[ca.DM, ca.DM]:
+        constraints_lower_bound = ca.repmat(ca.DM(inflation_radius), (1, self.horizon * num_obstacles))
+        constraints_upper_bound = ca.repmat(ca.DM(ca.inf), (1, self.horizon * num_obstacles))
+
+        return constraints_lower_bound, constraints_upper_bound
+    
+    ## GOTTA ADD below
+
     def get_symbolic_constraints(
         self,
         current_linear_velocity: float,
@@ -209,8 +272,6 @@ class MotionPlanner:
     
     def get_constraints_bounds(
         self,
-        linear_velocity_bounds: Tuple[float, float],
-        angular_velocity_bounds: Tuple[float, float],
         # inflation_radius: float = 0
     ) -> Tuple[ca.DM, ca.DM]:
         (
