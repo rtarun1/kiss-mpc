@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union, cast
 import casadi as ca
 import numpy as np
 
+from obstacle_handling.geometry import Circle
+
 def MX_horzcat(*args: ca.MX) -> ca.MX:
     return ca.horzcat(*args)
 

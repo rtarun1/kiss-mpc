@@ -15,15 +15,13 @@ from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy, DurabilityPo
 import numpy as np
 import message_filters
 import ros2_numpy
-# from sklearn.cluster import DBSCAN
+from sklearn.cluster import DBSCAN
 import cv2
 import time
 import rosbag2_py
 from rclpy.serialization import deserialize_message
 from geometry_msgs.msg import PointStamped
 from tf2_geometry_msgs import do_transform_point
-from cuml.cluster import HDBSCAN
-import cupy as cp
 
 # QoS Profiles
 qos_profile = QoSProfile(
@@ -261,11 +259,10 @@ class DetectorNode(Node):
                             continue
 
                         person_points_np = np.array(points_list)
-                        person_points_gpu = cp.asarray(person_points_np)
                         all_human_points_list.append(person_points_np)
 
-                        db = HDBSCAN(min_samples=self.dbscan_min_samples, gen_min_span_tree=True).fit(person_points_gpu)
-                        labels = db.labels_.get()
+                        db = DBSCAN(eps=self.dbscan_eps, min_samples=self.dbscan_min_samples).fit(person_points_np)
+                        labels = db.labels_
 
                         unique_labels, counts = np.unique(labels[labels != -1], return_counts=True)
                         
@@ -289,7 +286,9 @@ class DetectorNode(Node):
                         
                         self.get_logger().info(f"Center for Human ID {track_id}: [x={center[0]:.2f}, y={center[1]:.2f}]")
                                       
-                    
+                    self.rollout_times.append(time.perf_counter() - step_start) 
+                    self.rollout_times[-1] *= 1000
+                    self.get_logger().info(f"Rollout time for Human ID {track_id}: {self.rollout_times[-1]:.4f} ms")
                     self.publish_cluster_markers(valid_track_ids, cluster_centers_map, pc_msg.header)
 
                     if all_human_points_list:

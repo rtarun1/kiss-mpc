@@ -43,3 +43,4 @@ class StaticObstacle(Obstacle):
                     for time_step in range(symbolic_states_matrix.shape[1])
                 ]
         )
+    
