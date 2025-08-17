@@ -257,12 +257,12 @@ class MotionPlanner:
 
         return constraints_lower_bound, constraints_upper_bound
     
-    ## GOTTA ADD below
-
     def get_symbolic_constraints(
         self,
         current_linear_velocity: float,
         current_angular_velocity: float,
+        static_obstacles,
+        dynamic_obstacles,
     ) -> ca.MX:
         symbolic_constraints = MX_vertcat(
             self.get_symbolic_state_constrains(
@@ -270,11 +270,21 @@ class MotionPlanner:
                 current_angular_velocity=current_angular_velocity
             ).reshape((-1, 1)),
         )
+
+        if len(static_obstacles + dynamic_obstacles) > 0:
+            symbolic_constraints = MX_vertcat(
+                symbolic_constraints,
+                self.get_symbolic_obstacle_constraints(
+                    static_obstacles=static_obstacles,
+                    dynamic_obstacles=dynamic_obstacles,
+                ).reshape((-1, 1))
+            )
         return symbolic_constraints
     
     def get_constraints_bounds(
         self,
-        # inflation_radius: float = 0
+        inflation_radius: float = 0,
+        num_obstacles=0,
     ) -> Tuple[ca.DM, ca.DM]:
         (
             state_constraints_lower_bound,
@@ -287,6 +297,22 @@ class MotionPlanner:
         constraints_upper_bound = DM_vertcat(
             state_constraints_upper_bound.reshape((-1, 1))
         )
+
+        if num_obstacles > 0:
+            (
+                obstacle_constraints_lower_bound,
+                obstacle_constraints_upper_bound,
+            ) = self.get_obstacle_constraints_bounds(
+                inflation_radius=inflation_radius, num_obstacles=num_obstacles
+            )
+            constraints_lower_bound = DM_vertcat(
+                constraints_lower_bound,
+                obstacle_constraints_lower_bound.reshape((-1, 1)),
+            )
+            constraints_upper_bound = DM_vertcat(
+                constraints_upper_bound,
+                obstacle_constraints_upper_bound.reshape((-1, 1)),
+            )
         
         return constraints_lower_bound, constraints_upper_bound
     
@@ -301,6 +327,9 @@ class MotionPlanner:
         state_bounds: np.ndarray,
         linear_velocity_bounds: np.ndarray,
         angular_velocity_bounds: np.ndarray,
+        static_obstacles = [],
+        dynamic_obstacles = [],
+        inflation_radius=None,
     ):
         non_linear_program = {
             "x": self.symbolic_optimization_variables,
@@ -329,7 +358,9 @@ class MotionPlanner:
             constraints_upper_bounds,
         ) = self.get_constraints_bounds(
             linear_velocity_bounds=linear_velocity_bounds,
-            angular_velocity_bounds=angular_velocity_bounds
+            angular_velocity_bounds=angular_velocity_bounds,
+            inflation_radius=(inflation_radius if inflation_radius is not None else 0),
+            num_obstacles=len(static_obstacles + dynamic_obstacles)
         )
         
         (

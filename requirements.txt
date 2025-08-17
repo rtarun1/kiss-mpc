@@ -1,0 +1,16 @@
+casadi==3.7.1
+cv-bridge==3.2.1
+matplotlib==3.10.5
+numpy==1.24.2
+open3d==0.19.0
+opencv-python==4.11.0.86
+pandas==2.3.0
+pillow==11.3.0
+scikit-learn==1.7.1
+scipy==1.15.3
+torch==2.7.1
+torchmetrics==1.8.1
+torchsummary==1.5.1
+torchvision==0.22.1
+ultralytics==8.3.172
+ros2_numpy==0.0.2

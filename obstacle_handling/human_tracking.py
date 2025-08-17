@@ -215,6 +215,10 @@ class DetectorNode(Node):
             cloud_array = ros2_numpy.point_cloud2.pointcloud2_to_array(pc_msg)
             points = ros2_numpy.point_cloud2.get_xyz_points(cloud_array, remove_nans=True)
 
+            distances = np.linalg.norm(points, axis=1)
+            max_distance = 5.0
+            points = points[distances < max_distance]
+
             points_homogeneous = np.hstack((points, np.ones((points.shape[0], 1))))
             points_camera_frame = (transform_matrix @ points_homogeneous.T).T[:, :3]
 
