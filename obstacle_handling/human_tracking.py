@@ -190,8 +190,13 @@ class DetectorNode(Node):
         step_start = time.perf_counter()
 
         T_lidar_camera_arr = [
-            0.08592, 0.0, -0.10986, # Translation (x, y, z)
-            0.50417, 0.51000, 0.49558, 0.50400 # Quaternion (qx, qy, qz, qw)
+            0.06223598068742114,
+            0.012237596587866426,
+            -0.05778298390566573,
+            0.5035505589671723,
+            0.4987164201169012,
+            0.4961475523030442,
+            0.5015539584265382
         ]
         translation_m = ros2_numpy.geometry.transformations.translation_matrix(T_lidar_camera_arr[0:3])
         rotation_m = ros2_numpy.geometry.transformations.quaternion_matrix(T_lidar_camera_arr[3:7])
